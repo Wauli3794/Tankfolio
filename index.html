@@ -1452,38 +1452,26 @@ const TF = {
       const theirColor = window._dmUserColor || AVATAR_COLORS[0];
       const convRef    = db.collection('conversations').doc(dmConvId);
 
-      // Use a transaction to atomically create/update conversation and add message
-      // This avoids needing a read first (which can fail on new conversations)
-      const batch = db.batch();
-
-      // Write conversation doc — set with merge handles both new and existing
-      // Use literal values only (no increment) so set() always works
-      batch.set(convRef, {
+      // Step 1: Write conversation doc unconditionally with set()
+      // This always works whether doc exists or not — no merge, no increment
+      await convRef.set({
         members:      [CU.uid, dmUserId],
         memberNames:  { [CU.uid]: myName,  [dmUserId]: theirName },
         memberColors: { [CU.uid]: myColor, [dmUserId]: theirColor },
-        lastMsg: text,
-        lastTs:  FS.FieldValue.serverTimestamp(),
-      }, { merge: true });
-
-      // Add message
-      const msgRef = convRef.collection('messages').doc();
-      batch.set(msgRef, {
-        senderUid: CU.uid, senderName: myName,
-        text, ts: FS.FieldValue.serverTimestamp()
+        lastMsg:      text,
+        lastTs:       FS.FieldValue.serverTimestamp(),
+        unread:       { [CU.uid]: 0, [dmUserId]: 1 }
       });
 
-      await batch.commit();
-
-      // Update unread count separately (increment only works in update)
-      convRef.update({
-        [`unread.${dmUserId}`]: FS.FieldValue.increment(1)
-      }).catch(() => {
-        // If update fails (first message race), set it directly
-        convRef.set({ unread: { [CU.uid]: 0, [dmUserId]: 1 } }, { merge: true }).catch(()=>{});
+      // Step 2: Add the message to the subcollection
+      await convRef.collection('messages').add({
+        senderUid:  CU.uid,
+        senderName: myName,
+        text,
+        ts: FS.FieldValue.serverTimestamp()
       });
 
-      // Notify recipient
+      // Step 3: Notify recipient (fire and forget)
       db.collection('users').doc(dmUserId).collection('notifications').add({
         type:'dm', fromUserId:CU.uid, fromUserName:myName, fromUserColor:myColor,
         msgPreview:text.slice(0,60), read:false, createdAt:FS.FieldValue.serverTimestamp()
@@ -1491,7 +1479,7 @@ const TF = {
 
     } catch(e) {
       console.error('sendDm error:', e.code, e.message);
-      toast('Failed: ' + (e.code==='permission-denied' ? 'Check Firestore rules are published.' : e.message));
+      toast('Failed: ' + e.message);
       $('dm-input').value = text;
     }
   },
