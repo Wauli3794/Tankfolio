@@ -1452,32 +1452,35 @@ const TF = {
       const theirColor = window._dmUserColor || AVATAR_COLORS[0];
       const convRef    = db.collection('conversations').doc(dmConvId);
 
-      // Check if conversation already exists
-      const convSnap = await convRef.get();
+      // Use a transaction to atomically create/update conversation and add message
+      // This avoids needing a read first (which can fail on new conversations)
+      const batch = db.batch();
 
-      if (!convSnap.exists) {
-        // First message — create the conversation doc cleanly (no increment on new doc)
-        await convRef.set({
-          members:      [CU.uid, dmUserId],
-          memberNames:  { [CU.uid]: myName,  [dmUserId]: theirName },
-          memberColors: { [CU.uid]: myColor, [dmUserId]: theirColor },
-          lastMsg:  text,
-          lastTs:   FS.FieldValue.serverTimestamp(),
-          unread:   { [CU.uid]: 0, [dmUserId]: 1 }
-        });
-      } else {
-        // Existing conversation — update with increment
-        await convRef.update({
-          lastMsg: text,
-          lastTs:  FS.FieldValue.serverTimestamp(),
-          [`unread.${dmUserId}`]: FS.FieldValue.increment(1)
-        });
-      }
+      // Write conversation doc — set with merge handles both new and existing
+      // Use literal values only (no increment) so set() always works
+      batch.set(convRef, {
+        members:      [CU.uid, dmUserId],
+        memberNames:  { [CU.uid]: myName,  [dmUserId]: theirName },
+        memberColors: { [CU.uid]: myColor, [dmUserId]: theirColor },
+        lastMsg: text,
+        lastTs:  FS.FieldValue.serverTimestamp(),
+      }, { merge: true });
 
-      // Add the message
-      await convRef.collection('messages').add({
+      // Add message
+      const msgRef = convRef.collection('messages').doc();
+      batch.set(msgRef, {
         senderUid: CU.uid, senderName: myName,
         text, ts: FS.FieldValue.serverTimestamp()
+      });
+
+      await batch.commit();
+
+      // Update unread count separately (increment only works in update)
+      convRef.update({
+        [`unread.${dmUserId}`]: FS.FieldValue.increment(1)
+      }).catch(() => {
+        // If update fails (first message race), set it directly
+        convRef.set({ unread: { [CU.uid]: 0, [dmUserId]: 1 } }, { merge: true }).catch(()=>{});
       });
 
       // Notify recipient
