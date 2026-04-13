@@ -1,0 +1,2249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TankFolio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- Firebase Compat SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0a1628;--surface:#111e33;--surface2:#162035;--surface3:#1c2a42;
+  --border:#1e2e45;--border2:#2a3f5f;
+  --text:#e8f4f8;--text2:#b8d4e0;--text3:#7a9ab0;
+  --accent:#00d4aa;--accent2:#0090ff;--accent3:#a78bfa;
+  --danger:#ff4444;--warn:#ffaa00;--success:#22c55e;
+  --radius:14px;--sans:'DM Sans',sans-serif;--mono:'DM Mono',monospace;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hidden}
+button,input,textarea,select{font-family:var(--sans);font-size:14px;outline:none}
+input,textarea,select{background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;color:var(--text);padding:10px 14px;width:100%;transition:border 0.15s}
+input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px}
+label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-family:var(--mono);display:block;margin-bottom:6px}
+.form-group{margin-bottom:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;border-radius:10px;border:none;font-weight:600;cursor:pointer;font-size:14px;transition:all 0.15s;width:100%}
+.btn-primary{background:var(--accent);color:var(--bg)}
+.btn-primary:hover{filter:brightness(1.1)}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed}
+.btn-secondary{background:var(--surface2);color:var(--text2);border:1.5px solid var(--border2)}
+.btn-sm{padding:7px 14px;font-size:12px;width:auto;border-radius:8px}
+.btn-danger{background:rgba(255,68,68,0.12);color:var(--danger);border:1px solid rgba(255,68,68,0.3)}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface3);border:1px solid var(--border2);border-radius:20px;padding:10px 20px;font-size:13px;color:var(--text);z-index:9999;opacity:0;transition:all 0.3s;pointer-events:none;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.4)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── SPINNER ── */
+.spinner{width:24px;height:24px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:300;display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity 0.25s}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--bg);border-radius:20px 20px 0 0;padding:20px 20px 40px;width:100%;max-height:88vh;overflow-y:auto;transform:translateY(100%);transition:transform 0.3s cubic-bezier(0.32,0.72,0,1)}
+.modal-overlay.open .modal{transform:translateY(0)}
+.modal-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 16px}
+.modal-title{font-family:var(--mono);font-size:13px;color:var(--accent);letter-spacing:1px;margin-bottom:18px}
+
+/* ── LOADING SCREEN ── */
+#loading-screen{position:fixed;inset:0;background:var(--bg);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+#loading-screen.hidden{display:none}
+#loading-screen .logo{font-size:48px}
+#loading-screen .msg{font-size:13px;color:var(--text3);font-family:var(--mono)}
+
+/* ── LOGIN ── */
+#login-screen{position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto}
+#login-screen.hidden{display:none}
+.login-logo{font-size:48px;margin-bottom:8px}
+.login-title{font-family:var(--mono);font-size:22px;color:var(--accent);letter-spacing:2px;margin-bottom:4px}
+.login-sub{font-size:13px;color:var(--text3);margin-bottom:28px}
+.login-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;width:100%;max-width:360px}
+.tab-row{display:flex;background:var(--surface2);border-radius:10px;padding:4px;margin-bottom:18px;gap:4px}
+.tab-btn{flex:1;padding:8px;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;background:transparent;color:var(--text3);font-family:var(--sans)}
+.tab-btn.active{background:var(--surface);color:var(--accent)}
+.btn-google{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:11px;background:white;color:#3c4043;border:1px solid #dadce0;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;transition:background 0.15s;margin-bottom:14px}
+.btn-google:hover{background:#f8f9fa}
+.divider{display:flex;align-items:center;gap:10px;margin:14px 0;color:var(--text3);font-size:12px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.error-msg{color:var(--danger);font-size:12px;margin-bottom:10px;display:none}
+.remember-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;cursor:pointer}
+.checkbox-box{width:20px;height:20px;border-radius:5px;border:2px solid var(--border2);background:transparent;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s}
+.checkbox-box.checked{background:var(--accent);border-color:var(--accent)}
+
+/* ── VERIFY SCREEN ── */
+#verify-screen{position:fixed;inset:0;background:var(--bg);z-index:600;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}
+#verify-screen.show{display:flex}
+
+/* ── APP SHELL ── */
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+#app.hidden{display:none}
+
+/* ── HEADER ── */
+#header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:relative;z-index:10}
+#header h1{font-size:16px;font-family:var(--mono);color:var(--accent);letter-spacing:1px}
+.header-icons{display:flex;align-items:center;gap:2px}
+.hbtn{background:none;border:none;color:var(--accent);cursor:pointer;padding:6px;border-radius:8px;display:flex;align-items:center;justify-content:center;position:relative;transition:background 0.15s}
+.hbtn:hover{background:var(--surface2)}
+.hbadge{position:absolute;top:0;right:0;background:var(--danger);color:white;font-size:8px;font-weight:700;min-width:14px;height:14px;border-radius:7px;display:none;align-items:center;justify-content:center;padding:0 3px;font-family:var(--mono);border:2px solid var(--surface)}
+.hbadge.show{display:flex}
+
+/* Profile dropdown */
+#profile-btn{background:none;border:1px solid var(--border2);color:var(--text);cursor:pointer;display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;font-size:12px;font-family:var(--sans);max-width:130px}
+#profile-dropdown{position:absolute;top:calc(100% + 4px);right:16px;background:var(--surface);border:1px solid var(--border2);border-radius:12px;min-width:180px;z-index:200;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.5);display:none}
+#profile-dropdown.open{display:block}
+.pd-info{padding:12px 14px;border-bottom:1px solid var(--border)}
+.pd-name{font-size:13px;font-weight:600;color:var(--text)}
+.pd-email{font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pd-item{width:100%;display:flex;align-items:center;gap:10px;padding:11px 14px;background:none;border:none;color:var(--text);font-size:13px;cursor:pointer;text-align:left;font-family:var(--sans);transition:background 0.1s}
+.pd-item:hover{background:var(--surface2)}
+.pd-item.danger{color:var(--danger)}
+.pd-divider{height:1px;background:var(--border)}
+#admin-btn{background:linear-gradient(135deg,#ff6b35,#ff4444);border:none;color:white;font-size:9px;font-weight:700;padding:5px 8px;border-radius:6px;cursor:pointer;font-family:var(--mono);letter-spacing:0.5px;display:none}
+
+/* ── CONTENT ── */
+#content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+
+/* ── VIEWS ── */
+.view{display:none;min-height:100%;padding:16px}
+.view.active{display:block;animation:fadeUp 0.2s ease}
+.view-bare{display:none;min-height:100%}
+.view-bare.active{display:flex;flex-direction:column;animation:fadeUp 0.2s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── NAV ── */
+#nav{background:var(--surface);border-top:1px solid var(--border);display:flex;flex-shrink:0}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 4px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px;font-family:var(--sans);transition:color 0.15s}
+.nav-btn svg{transition:color 0.15s}
+.nav-btn.active{color:var(--accent)}
+
+/* ── CARDS ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px}
+.card-title{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:1px;text-transform:uppercase}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty-state .icon{font-size:48px;margin-bottom:12px}
+.empty-state .title{font-size:16px;color:var(--text2);font-weight:600;margin-bottom:6px}
+
+/* ── TANK CARDS ── */
+.tank-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px;cursor:pointer;display:flex;gap:12px;align-items:flex-start;transition:border-color 0.15s}
+.tank-card:hover{border-color:var(--border2)}
+.tank-thumb{width:72px;height:72px;border-radius:10px;border:2px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;object-fit:cover}
+.add-tank-btn{width:100%;background:var(--surface2);border:2px dashed var(--border2);border-radius:var(--radius);padding:20px;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--accent);font-family:var(--mono);font-size:13px;cursor:pointer;transition:background 0.15s;margin-top:4px}
+.add-tank-btn:hover{background:var(--surface3)}
+
+/* ── FAB ── */
+.fab{position:fixed;bottom:72px;right:16px;width:52px;height:52px;border-radius:50%;background:var(--accent);color:var(--bg);border:none;font-size:24px;cursor:pointer;z-index:100;box-shadow:0 4px 16px rgba(0,212,170,0.4);display:none;align-items:center;justify-content:center;transition:transform 0.2s}
+.fab.show{display:flex}
+.fab:hover{transform:scale(1.05)}
+
+/* ── POST CARDS ── */
+.post-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+.post-header{display:flex;align-items:center;gap:10px;padding:12px 14px 8px}
+.post-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;font-family:var(--mono);flex-shrink:0}
+.post-body{padding:0 14px 10px}
+.post-text{font-size:14px;color:var(--text2);line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.post-carousel{position:relative;margin-top:8px;overflow:hidden;border-radius:10px}
+.post-carousel-track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;gap:0}
+.post-carousel-track::-webkit-scrollbar{display:none}
+.post-carousel-track img{flex:0 0 100%;width:100%;height:240px;object-fit:cover;scroll-snap-align:start;cursor:pointer;transition:opacity 0.15s}
+.post-carousel-track img:hover{opacity:0.9}
+.post-carousel-dots{display:flex;justify-content:center;gap:5px;padding:6px 0 2px}
+.carousel-dot{width:6px;height:6px;border-radius:50%;background:var(--border2);transition:background 0.2s;cursor:pointer}
+.carousel-dot.active{background:var(--accent)}
+.post-actions{display:flex;gap:0;border-top:1px solid var(--border);padding:2px 8px}
+.action-btn{display:flex;align-items:center;gap:6px;padding:8px 12px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;border-radius:8px;transition:color 0.15s}
+.action-btn:hover,.action-btn.liked{color:var(--danger)}
+.action-btn.comment:hover{color:var(--accent2)}
+
+/* ── FRIEND CARDS ── */
+.friend-card{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer}
+.friend-avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;font-family:var(--mono);flex-shrink:0}
+
+/* ── DM ── */
+.dm-bubble{max-width:78%;padding:9px 13px;border-radius:16px;font-size:14px;line-height:1.5;word-break:break-word}
+.dm-bubble.mine{background:var(--accent);color:var(--bg);border-bottom-right-radius:4px;align-self:flex-end}
+.dm-bubble.theirs{background:var(--surface2);color:var(--text);border-bottom-left-radius:4px;align-self:flex-start}
+.dm-time{font-size:10px;color:var(--text3);margin-bottom:6px}
+.dm-time.mine{align-self:flex-end}
+.dm-time.theirs{align-self:flex-start}
+.unread-badge{background:var(--accent);color:var(--bg);font-size:10px;font-weight:700;min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;font-family:var(--mono);margin-left:auto}
+
+/* ── NOTIF ITEMS ── */
+.notif-item{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s}
+.notif-item:hover{background:var(--surface2)}
+.notif-item.unread{background:rgba(0,212,170,0.05)}
+.notif-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:5px}
+
+/* ── STATS ── */
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px}
+
+/* ── SECTION HEADERS ── */
+.section-header{position:sticky;top:0;background:var(--bg);z-index:10;padding:12px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.section-title{font-family:var(--mono);font-size:13px;color:var(--accent);letter-spacing:1px}
+
+/* ── WATER TEST PARAMS ── */
+.param-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.param-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.param-label{font-size:12px;color:var(--text3);width:60px;font-family:var(--mono)}
+.param-input{flex:1;padding:6px 10px;font-size:13px;min-width:0}
+.param-status{font-size:10px;font-family:var(--mono);flex-shrink:0;width:60px;text-align:right}
+
+/* ── TOGGLE SWITCH ── */
+.toggle{position:relative;width:44px;height:24px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{position:absolute;inset:0;background:var(--surface3);border-radius:12px;transition:background 0.2s;cursor:pointer}
+.toggle input:checked + .toggle-track{background:var(--accent)}
+.toggle-thumb{position:absolute;top:3px;left:3px;width:18px;height:18px;background:white;border-radius:50%;transition:left 0.2s;cursor:pointer;pointer-events:none}
+.toggle input:checked ~ .toggle-thumb{left:23px}
+
+/* ── PULL TO REFRESH ── */
+#ptr{text-align:center;overflow:hidden;max-height:0;transition:max-height 0.2s;display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--accent);font-family:var(--mono);background:var(--bg)}
+#ptr.pulling{max-height:60px}
+#ptr-icon{transition:transform 0.2s}
+@keyframes ptrspin{to{transform:rotate(360deg)}}
+.ptr-spinning{animation:ptrspin 0.6s linear infinite}
+
+/* ── ADMIN ── */
+.admin-badge{background:linear-gradient(135deg,#ff6b35,#ff4444);color:white;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;font-family:var(--mono);letter-spacing:0.5px;margin-left:6px}
+
+/* ── MISC ── */
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.back-btn{display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--accent2);cursor:pointer;font-size:13px;padding:0;margin-bottom:14px}
+.day-pill{padding:6px 10px;border-radius:8px;font-size:12px;font-family:var(--mono);cursor:pointer;border:1.5px solid var(--border2);color:var(--text3);transition:all 0.15s;background:transparent}
+.day-pill.selected{border-color:var(--accent);background:rgba(0,212,170,0.1);color:var(--accent)}
+img-viewer{display:none}
+#img-viewer{position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:9000;display:none;align-items:center;justify-content:center}
+#img-viewer.open{display:flex}
+#img-viewer img{max-width:96%;max-height:96%;border-radius:8px;object-fit:contain}
+#img-viewer-close{position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.15);border:none;color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading-screen">
+  <div class="logo">🐠</div>
+  <div class="spinner"></div>
+  <div class="msg" id="loading-msg">Connecting...</div>
+</div>
+
+<!-- Verify Email -->
+<div id="verify-screen">
+  <div style="font-size:48px;margin-bottom:16px">📧</div>
+  <div style="font-family:var(--mono);font-size:18px;color:var(--accent);margin-bottom:8px">CHECK YOUR EMAIL</div>
+  <div style="font-size:14px;color:var(--text2);margin-bottom:6px">Verification sent to:</div>
+  <div id="verify-email" style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:8px"></div>
+  <div id="verify-status" style="font-size:12px;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:20px;max-width:300px"></div>
+  <div style="font-size:13px;color:var(--text3);max-width:300px;line-height:1.6;margin-bottom:24px">Click the link in the email, then tap the button below.</div>
+  <button class="btn btn-primary" style="max-width:300px;margin-bottom:10px" onclick="TF.checkVerified()">I've Verified ✓</button>
+  <button class="btn btn-secondary" style="max-width:300px;margin-bottom:10px" onclick="TF.resendVerify()">Resend Email</button>
+  <button style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;margin-top:4px" onclick="TF.cancelVerify()">Cancel — Sign Out</button>
+</div>
+
+<!-- Login -->
+<div id="login-screen">
+  <div class="login-logo">🐠</div>
+  <div class="login-title">TANKFOLIO</div>
+  <div class="login-sub">Fish Tank Tracker & Community</div>
+  <div class="login-card">
+    <div class="tab-row">
+      <button class="tab-btn active" id="tab-signin" onclick="TF.loginTab('signin')">Sign In</button>
+      <button class="tab-btn" id="tab-signup" onclick="TF.loginTab('signup')">Create Account</button>
+    </div>
+
+    <!-- Sign In Panel -->
+    <div id="panel-signin">
+      <button class="btn-google" onclick="TF.googleSignIn()">
+        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+        Sign in with Google
+      </button>
+      <div class="divider">or</div>
+      <div class="form-group"><label>Email</label><input type="email" id="si-email" placeholder="you@email.com" autocapitalize="none" onkeydown="if(event.key==='Enter')TF.signIn()"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="si-pw" placeholder="Your password" onkeydown="if(event.key==='Enter')TF.signIn()"></div>
+      <div class="remember-row" onclick="TF.toggleRemember()">
+        <div class="checkbox-box checked" id="remember-box"><svg viewBox="0 0 10 8" width="10" height="8"><path d="M1 4l3 3 5-5" stroke="var(--bg)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div><div style="font-size:13px;font-weight:500">Remember me</div><div style="font-size:11px;color:var(--text3)">Stay signed in on this device</div></div>
+      </div>
+      <div class="error-msg" id="si-err"></div>
+      <button class="btn btn-primary" id="si-btn" onclick="TF.signIn()">Sign In</button>
+      <div style="text-align:center;margin-top:12px"><button onclick="TF.forgotPw()" style="background:none;border:none;color:var(--accent2);font-size:12px;cursor:pointer">Forgot password?</button></div>
+    </div>
+
+    <!-- Sign Up Panel -->
+    <div id="panel-signup" style="display:none">
+      <button class="btn-google" onclick="TF.googleSignIn()">
+        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+        Sign up with Google
+      </button>
+      <div class="divider">or</div>
+      <div class="form-group"><label>Display Name</label><input type="text" id="su-name" placeholder="e.g. Wauli" maxlength="30"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="su-email" placeholder="you@email.com" autocapitalize="none"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="su-pw" placeholder="At least 6 characters"></div>
+      <div class="form-group"><label>Confirm Password</label><input type="password" id="su-pw2" placeholder="Repeat password" onkeydown="if(event.key==='Enter')TF.signUp()"></div>
+      <div class="error-msg" id="su-err"></div>
+      <button class="btn btn-primary" id="su-btn" onclick="TF.signUp()">Create Account</button>
+    </div>
+  </div>
+  <div style="margin-top:16px;font-size:11px;color:var(--text3);text-align:center;max-width:320px;line-height:1.5">Your data is securely stored in the cloud.</div>
+</div>
+
+<!-- Image Viewer -->
+<div id="img-viewer" onclick="this.classList.remove('open')">
+  <img id="img-viewer-img" src="" alt="">
+  <button id="img-viewer-close" onclick="document.getElementById('img-viewer').classList.remove('open')">✕</button>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Main App -->
+<div id="app" class="hidden">
+  <!-- Header -->
+  <div id="header">
+    <h1>🐠 TANKFOLIO</h1>
+    <div class="header-icons">
+      <button class="hbtn" onclick="TF.nav('friends')" title="Friends">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg>
+      </button>
+      <button class="hbtn" onclick="TF.nav('messages')" title="Messages" style="position:relative">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span class="hbadge" id="msg-badge">0</span>
+      </button>
+      <button class="hbtn" onclick="TF.nav('notifications')" title="Notifications" style="position:relative">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="hbadge" id="notif-badge">0</span>
+      </button>
+      <button id="admin-btn" onclick="TF.nav('admin')">ADMIN</button>
+      <div style="position:relative">
+        <button id="profile-btn" onclick="TF.toggleProfileMenu()">
+          <div id="profile-avatar" style="width:22px;height:22px;border-radius:50%;background:rgba(0,212,170,0.2);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:var(--mono);flex-shrink:0">?</div>
+          <span id="profile-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70px">Account</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10" id="profile-chevron" style="flex-shrink:0;transition:transform 0.2s"><polyline points="6,9 12,15 18,9"/></svg>
+        </button>
+        <div id="profile-dropdown">
+          <div class="pd-info">
+            <div class="pd-name" id="pd-name"></div>
+            <div class="pd-email" id="pd-email"></div>
+          </div>
+          <button class="pd-item" onclick="TF.openEditProfile();TF.closeProfileMenu()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Edit Display Name
+          </button>
+          <div class="pd-divider"></div>
+          <button class="pd-item danger" onclick="TF.signOut()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Sign Out
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div id="content">
+
+    <!-- TANKS VIEW -->
+    <div class="view active" id="view-tanks">
+      <div id="tank-list"></div>
+      <div class="add-tank-btn" id="add-tank-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        ADD NEW TANK
+      </div>
+    </div>
+
+    <!-- LOG VIEW -->
+    <div class="view" id="view-log">
+      <button class="back-btn" onclick="TF.nav('tanks')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="15,18 9,12 15,6"/></svg>
+        Tanks
+      </button>
+      <div id="log-tank-name" style="font-size:20px;font-weight:700;margin-bottom:4px"></div>
+      <div id="log-tank-sub" style="font-size:12px;color:var(--text3);margin-bottom:16px"></div>
+      <div id="log-form"></div>
+    </div>
+
+    <!-- HISTORY VIEW -->
+    <div class="view" id="view-history">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="font-family:var(--mono);font-size:13px;color:var(--accent);letter-spacing:1px">LOG HISTORY</div>
+        <select id="history-filter" onchange="TF.renderHistory()" style="width:auto;font-size:12px;padding:6px 10px">
+          <option value="">All Tanks</option>
+        </select>
+      </div>
+      <div id="history-list"></div>
+    </div>
+
+    <!-- STATS VIEW -->
+    <div class="view" id="view-stats">
+      <div style="font-family:var(--mono);font-size:13px;color:var(--accent);letter-spacing:1px;margin-bottom:14px">STATS</div>
+      <div class="form-group">
+        <label>Tank</label>
+        <select id="stats-tank" onchange="TF.renderStats()">
+          <option value="">Select a tank</option>
+        </select>
+      </div>
+      <div id="stats-content"></div>
+    </div>
+
+    <!-- COMMUNITY VIEW -->
+    <div class="view" id="view-community" style="padding:0">
+      <div id="ptr"><svg id="ptr-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg><span id="ptr-label">Pull to refresh</span></div>
+      <div id="community-feed" style="padding:12px 16px"></div>
+      <div id="community-more" style="padding:0 16px 16px;display:none"><button class="btn btn-secondary" onclick="TF.loadMorePosts()">Load more</button></div>
+    </div>
+
+    <!-- FRIENDS VIEW -->
+    <div class="view" id="view-friends" style="padding:0">
+      <div class="section-header">
+        <div class="section-title">FRIENDS</div>
+        <button class="btn btn-secondary btn-sm" onclick="TF.nav('messages')">💬 Messages</button>
+      </div>
+      <div style="padding:12px 16px">
+        <input type="text" id="friend-search" placeholder="Search by display name..." oninput="TF.searchUsers(this.value)" style="margin-bottom:0">
+      </div>
+      <div id="friend-search-results"></div>
+      <div style="padding:12px 16px 6px">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:1px;margin-bottom:8px">FRIEND REQUESTS</div>
+        <div id="friend-requests"></div>
+      </div>
+      <div style="padding:0 16px">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:1px;margin-bottom:8px">MY FRIENDS</div>
+        <div id="friends-list"></div>
+      </div>
+    </div>
+
+    <!-- MESSAGES VIEW -->
+    <div class="view" id="view-messages" style="padding:0">
+      <div class="section-header">
+        <button class="back-btn" style="margin:0" onclick="TF.nav('friends')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="15,18 9,12 15,6"/></svg></button>
+        <div class="section-title">MESSAGES</div>
+        <div></div>
+      </div>
+      <div id="conversations-list" style="padding:8px 0"></div>
+    </div>
+
+    <!-- DM VIEW -->
+    <div class="view-bare" id="view-dm" style="padding:0">
+      <div class="section-header">
+        <button class="back-btn" style="margin:0" onclick="TF.closeDm()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15,18 9,12 15,6"/></svg></button>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div id="dm-avatar" class="friend-avatar" style="width:32px;height:32px;font-size:13px"></div>
+          <div id="dm-name" style="font-size:14px;font-weight:600"></div>
+        </div>
+        <div></div>
+      </div>
+      <div id="dm-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:2px"></div>
+      <div style="padding:10px 12px;background:var(--surface);border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-end">
+        <textarea id="dm-input" placeholder="Message..." style="flex:1;resize:none;height:40px;max-height:100px;padding:8px 12px;font-size:14px;border-radius:20px" oninput="this.style.height='40px';this.style.height=Math.min(this.scrollHeight,100)+'px'" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();TF.sendDm()}"></textarea>
+        <button onclick="TF.sendDm()" style="width:40px;height:40px;border-radius:50%;background:var(--accent);border:none;color:var(--bg);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- NOTIFICATIONS VIEW -->
+    <div class="view" id="view-notifications" style="padding:0">
+      <div class="section-header">
+        <div class="section-title">NOTIFICATIONS</div>
+        <button class="btn btn-secondary btn-sm" onclick="TF.markAllRead()">Mark all read</button>
+      </div>
+      <div id="notif-list"></div>
+    </div>
+
+    <!-- ADMIN VIEW -->
+    <div class="view" id="view-admin" style="padding:0">
+      <div class="section-header">
+        <div class="section-title" style="color:var(--danger)">⚠️ ADMIN</div>
+        <button class="btn btn-secondary btn-sm" onclick="TF.nav('community')">← Back</button>
+      </div>
+      <div style="display:flex;background:var(--surface2);padding:4px;gap:4px;margin:12px 16px;border-radius:10px">
+        <button onclick="TF.adminTab('posts')" id="atab-posts" style="flex:1;padding:8px;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;background:var(--surface);color:var(--accent);font-family:var(--sans)">Posts</button>
+        <button onclick="TF.adminTab('users')" id="atab-users" style="flex:1;padding:8px;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--text3);font-family:var(--sans)">Users</button>
+      </div>
+      <div id="admin-content" style="padding:0 16px 20px"></div>
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- Bottom Nav -->
+  <nav id="nav">
+    <button class="nav-btn active" id="nav-tanks" onclick="TF.nav('tanks')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 4 0v2M16 7V5a2 2 0 0 1 4 0v2"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+      Tanks
+    </button>
+    <button class="nav-btn" id="nav-history" onclick="TF.nav('history')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+      History
+    </button>
+    <button class="nav-btn" id="nav-stats" onclick="TF.nav('stats')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+      Stats
+    </button>
+    <button class="nav-btn" id="nav-community" onclick="TF.nav('community')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Community
+    </button>
+  </nav>
+</div>
+
+<!-- FAB -->
+<button class="fab" id="fab" onclick="TF.openNewPost()">+</button>
+
+<!-- ADD TANK MODAL -->
+<div class="modal-overlay" id="modal-tank" onclick="if(event.target===this)TF.closeModal('tank')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-tank-title">NEW TANK</div>
+    <div class="form-group">
+      <label>Tank Photo</label>
+      <div id="tank-photo-preview" onclick="document.getElementById('tank-photo-input').click()" style="width:80px;height:80px;border-radius:12px;background:var(--surface2);border:2px dashed var(--border2);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;position:relative">
+        <span style="font-size:24px">📷</span><span style="font-size:10px;color:var(--text3);margin-top:2px">Add photo</span>
+      </div>
+      <input type="file" id="tank-photo-input" accept="image/*" capture="environment" style="display:none" onchange="TF.handleTankPhoto(event)">
+    </div>
+    <div class="form-group"><label>Tank Name *</label><input type="text" id="tank-name" placeholder="e.g. Living Room 55gal"></div>
+    <div class="row-2">
+      <div class="form-group"><label>Size</label><input type="text" id="tank-size" placeholder="e.g. 55 gal"></div>
+      <div class="form-group"><label>Filter</label><input type="text" id="tank-filter" placeholder="e.g. Canister"></div>
+    </div>
+    <div class="row-2">
+      <div class="form-group"><label>Target Temp</label><input type="number" id="tank-temp" placeholder="76" step="0.1"></div>
+      <div class="form-group"><label>Unit</label><select id="tank-temp-unit"><option>°F</option><option>°C</option></select></div>
+    </div>
+    <div class="form-group"><label>Water Change Goal %</label><input type="number" id="tank-wc" placeholder="25" min="0" max="100"></div>
+    <div class="form-group"><label>Stock / Notes</label><textarea id="tank-stock" placeholder="e.g. 6x Neon Tetras..."></textarea></div>
+    <div class="form-group">
+      <label>🎉 Treat Days</label>
+      <div id="treat-days" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
+    </div>
+    <div class="form-group">
+      <label>⏳ Fast Days</label>
+      <div id="fast-days" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
+    </div>
+    <!-- Reminders -->
+    <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="TF.toggleRemindersSection()">
+        <div style="font-size:13px;font-weight:600">🔔 Reminders</div>
+        <span id="reminders-toggle-icon" style="color:var(--text3);font-size:12px;font-family:var(--mono)">+ Set up</span>
+      </div>
+      <div id="reminders-section" style="display:none;margin-top:12px">
+        <div id="notif-perm-banner" style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);border-radius:8px;padding:10px;margin-bottom:10px;display:none">
+          <div style="font-size:12px;color:var(--warn);margin-bottom:6px">Notifications not enabled</div>
+          <button class="btn btn-primary btn-sm" onclick="TF.requestNotifPerm()">Enable Notifications</button>
+        </div>
+        <div id="reminder-rows"></div>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="save-tank-btn" onclick="TF.saveTank()">Create Tank</button>
+  </div>
+</div>
+
+<!-- NEW POST MODAL -->
+<div class="modal-overlay" id="modal-post" onclick="if(event.target===this)TF.closeModal('post')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">NEW POST</div>
+    <div class="form-group"><label>What's on your mind?</label><textarea id="post-text" placeholder="Share a tip, question, or observation..." style="height:100px"></textarea></div>
+    <div id="post-photo-preview" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('post-photo-input').click()">📷 Add Photo</button>
+      <input type="file" id="post-photo-input" accept="image/*" multiple style="display:none" onchange="TF.handlePostPhotos(event)">
+    </div>
+    <div class="error-msg" id="post-err"></div>
+    <button class="btn btn-primary" id="post-submit-btn" onclick="TF.submitPost()">Post to Community</button>
+  </div>
+</div>
+
+<!-- COMMENTS MODAL -->
+<div class="modal-overlay" id="modal-comments" onclick="if(event.target===this)TF.closeModal('comments')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="comments-title">COMMENTS</div>
+    <div id="comments-list" style="margin-bottom:16px;max-height:40vh;overflow-y:auto"></div>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="comment-input" placeholder="Add a comment..." onkeydown="if(event.key==='Enter')TF.submitComment()" style="flex:1">
+      <button onclick="TF.submitComment()" style="background:var(--accent);border:none;color:var(--bg);padding:0 16px;border-radius:10px;cursor:pointer;font-weight:600;flex-shrink:0">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT PROFILE MODAL -->
+<div class="modal-overlay" id="modal-profile" onclick="if(event.target===this)TF.closeModal('profile')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">EDIT DISPLAY NAME</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:12px;background:var(--surface2);border-radius:10px">
+      <div id="edit-avatar" class="post-avatar" style="width:48px;height:48px;font-size:20px;flex-shrink:0"></div>
+      <div>
+        <div id="edit-current-name" style="font-size:15px;font-weight:600"></div>
+        <div id="edit-changes-left" style="font-size:11px;margin-top:2px"></div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>New Display Name</label>
+      <input type="text" id="new-name-input" placeholder="Enter new name" maxlength="30" oninput="TF.checkNameAvail(this.value)">
+      <div id="name-avail" style="font-size:12px;margin-top:5px;min-height:16px"></div>
+    </div>
+    <div style="font-size:12px;color:var(--text3);background:var(--surface2);padding:10px;border-radius:8px;margin-bottom:14px;line-height:1.5">
+      🔔 You can change your display name <strong style="color:var(--text)">2 times every 30 days</strong>. Names must be unique.
+    </div>
+    <div class="error-msg" id="edit-err"></div>
+    <button class="btn btn-primary" id="save-name-btn" onclick="TF.saveName()">Save Name</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// TANKFOLIO — Complete rewrite
+// All logic lives in the TF namespace to avoid global conflicts
+// Firebase loaded via compat SDK script tags above
+// ============================================================
+
+// ── CONFIG — replace with your Firebase project values ───────
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBUozcUYupvd4VIxrJB84zollqJ_znZEb0",
+  authDomain: "tankfolio2.firebaseapp.com",
+  projectId: "tankfolio2",
+  storageBucket: "tankfolio2.firebasestorage.app",
+  messagingSenderId: "36896563419",
+  appId: "1:36896563419:web:a687947151a0873199ecfe"
+};
+
+const ADMIN_EMAILS = ['djwauli3794@gmail.com'];
+const AVATAR_COLORS = ['#00d4aa','#0090ff','#ff6b35','#a78bfa','#fb923c','#34d399','#f472b6','#fbbf24'];
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const REMINDER_TYPES = [
+  {key:'feedAm', label:'AM Feeding', icon:'🌅', hasTime:true},
+  {key:'feedPm', label:'PM Feeding', icon:'🌆', hasTime:true},
+  {key:'waterChange', label:'Water Change', icon:'💧', hasTime:false, hasDays:true},
+  {key:'treatDay', label:'Treat Day', icon:'🎉', hasTime:false, hasDays:true},
+  {key:'fastDay', label:'Fast Day', icon:'⏳', hasTime:false, hasDays:true},
+];
+const SESSION_MS = 15 * 24 * 60 * 60 * 1000;
+const NAME_CHANGE_LIMIT = 2;
+const NAME_CHANGE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+const POSTS_PER_PAGE = 10;
+
+// ── Firebase init ─────────────────────────────────────────────
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth    = firebase.auth();
+const db      = firebase.firestore();
+const storage = firebase.storage();
+const FS      = firebase.firestore;
+
+// ── App state ─────────────────────────────────────────────────
+let CU = null;        // current user (Firebase auth)
+let UP = null;        // user profile (Firestore)
+let tanks   = [];
+let logs    = [];
+let tankPhotoData = null;
+let tankEditId    = null;
+let treatDays = [];
+let fastDays  = [];
+let tankReminders = {};
+let postPhotos  = [];
+let lastPostDoc = null;
+let communityPosts = [];
+let activePostId = null;
+let dmConvId = null;
+let dmUserId = null;
+let unsubDm  = null;
+let unsubConvs = null;
+let unsubNotifs = null;
+let rememberMe = true;
+let nameCheckTimer = null;
+let nameAvailable = false;
+let verifyPollTimer = null;
+let currentAdminTab = 'posts';
+
+// ── Helpers ───────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const initial = name => (name||'?').charAt(0).toUpperCase();
+const randColor = () => AVATAR_COLORS[Math.floor(Math.random()*AVATAR_COLORS.length)];
+const isAdmin = () => CU && ADMIN_EMAILS.includes((CU.email||'').toLowerCase());
+const convId = (a,b) => [a,b].sort().join('_');
+
+function toast(msg, dur=3000) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), dur);
+}
+
+function timeAgo(ts) {
+  if (!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const s = Math.floor((Date.now() - d) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s/60) + 'm ago';
+  if (s < 86400) return Math.floor(s/3600) + 'h ago';
+  return Math.floor(s/86400) + 'd ago';
+}
+
+function avatarHtml(name, color, size=36) {
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color}22;color:${color};border:2px solid ${color}44;display:flex;align-items:center;justify-content:center;font-size:${Math.floor(size*0.38)}px;font-weight:700;font-family:var(--mono);flex-shrink:0">${initial(name)}</div>`;
+}
+
+async function compressImage(file, maxW=800, quality=0.75) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ratio = Math.min(maxW/img.width, maxW/img.height, 1);
+        canvas.width  = img.width  * ratio;
+        canvas.height = img.height * ratio;
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadPhoto(dataUrl, path) {
+  const ref = storage.ref(path);
+  const snap = await ref.putString(dataUrl, 'data_url');
+  return snap.ref.getDownloadURL();
+}
+
+// ── Session ───────────────────────────────────────────────────
+function touchActive() { localStorage.setItem('tf_active', Date.now()); }
+function sessionExpired() {
+  const last = parseInt(localStorage.getItem('tf_active')||'0');
+  return last && (Date.now()-last) > SESSION_MS;
+}
+
+// ── Auth helpers ──────────────────────────────────────────────
+function authErr(code) {
+  const m = {
+    'auth/invalid-credential':'Incorrect email or password.',
+    'auth/user-not-found':'No account found with that email.',
+    'auth/wrong-password':'Incorrect password.',
+    'auth/email-already-in-use':'An account with that email already exists.',
+    'auth/invalid-email':'Please enter a valid email address.',
+    'auth/weak-password':'Password must be at least 6 characters.',
+    'auth/too-many-requests':'Too many attempts. Try again later.',
+    'auth/network-request-failed':'Network error. Check your connection.',
+    'auth/popup-blocked':'Popup blocked. Please allow popups and try again.',
+    'auth/popup-closed-by-user':'',
+  };
+  return m[code] || `Error: ${code}`;
+}
+
+// ── Boot ──────────────────────────────────────────────────────
+function showApp() {
+  $('loading-screen').classList.add('hidden');
+  $('login-screen').classList.add('hidden');
+  $('verify-screen').classList.remove('show');
+  $('app').classList.remove('hidden');
+  updateProfileMenu();
+  $('admin-btn').style.display = isAdmin() ? 'inline-flex' : 'none';
+  startListeners();
+  renderTanks();
+  TF.nav('tanks');
+}
+
+function showLogin() {
+  $('loading-screen').classList.add('hidden');
+  $('app').classList.add('hidden');
+  $('verify-screen').classList.remove('show');
+  $('login-screen').classList.remove('hidden');
+  const saved = localStorage.getItem('tf_email');
+  if (saved && rememberMe) $('si-email').value = saved;
+}
+
+function updateProfileMenu() {
+  if (!CU || !UP) return;
+  const color = UP.avatarColor || AVATAR_COLORS[0];
+  const name = UP.name || CU.displayName || CU.email;
+  $('profile-avatar').textContent = initial(name);
+  $('profile-avatar').style.background = color+'22';
+  $('profile-avatar').style.color = color;
+  $('profile-avatar').style.border = '2px solid '+color+'44';
+  $('profile-name').textContent = name;
+  $('pd-name').textContent = name;
+  $('pd-email').textContent = CU.email||'';
+}
+
+// ── Auth state ────────────────────────────────────────────────
+auth.onAuthStateChanged(async user => {
+  stopVerifyPolling();
+
+  if (!user) {
+    CU = null; UP = null;
+    stopListeners();
+    showLogin();
+    return;
+  }
+
+  // Email verification gate
+  if (!user.emailVerified && !ADMIN_EMAILS.includes((user.email||'').toLowerCase())) {
+    showVerifyScreen(user.email);
+    return;
+  }
+
+  // 15-day inactivity
+  if (sessionExpired()) {
+    localStorage.removeItem('tf_active');
+    auth.signOut();
+    return;
+  }
+
+  // Ban check
+  try {
+    const profSnap = await db.collection('users').doc(user.uid).get();
+    if (profSnap.exists) {
+      const data = profSnap.data();
+      if (data.bannedUntil && data.bannedUntil.toMillis() > Date.now()) {
+        const until = data.bannedUntil.toDate().toLocaleDateString();
+        const perm = data.bannedUntil.toDate().getFullYear() >= 2099;
+        auth.signOut();
+        $('loading-screen').classList.remove('hidden');
+        $('loading-msg').textContent = perm
+          ? 'Account permanently suspended.'
+          : `Account suspended until ${until}.`;
+        return;
+      }
+      UP = data;
+    } else {
+      // Create profile
+      UP = { uid:user.uid, name:user.displayName||user.email.split('@')[0], email:user.email, avatarColor:randColor(), nameLower:(user.displayName||user.email.split('@')[0]).toLowerCase(), nameChanges:[], createdAt:FS.FieldValue.serverTimestamp() };
+      await db.collection('users').doc(user.uid).set(UP);
+    }
+  } catch(e) {
+    console.warn('Profile load error:', e);
+    UP = { uid:user.uid, name:user.displayName||user.email, email:user.email, avatarColor:AVATAR_COLORS[0] };
+  }
+
+  CU = user;
+  touchActive();
+  localStorage.setItem('tf_email', user.email||'');
+
+  // Load tanks & logs
+  try {
+    const [ts, ls] = await Promise.all([
+      db.collection('users').doc(user.uid).collection('tanks').get(),
+      db.collection('users').doc(user.uid).collection('logs').orderBy('date','desc').get()
+    ]);
+    tanks = ts.docs.map(d => ({id:d.id,...d.data()}));
+    logs  = ls.docs.map(d => ({id:d.id,...d.data()}));
+  } catch(e) { console.warn('Data load error:', e.code, e.message); tanks=[]; logs=[]; }
+
+  showApp();
+});
+
+// ── TF namespace — all public functions ───────────────────────
+const TF = {
+
+  // ── Login tab switch ──────────────────────────────────────
+  loginTab(tab) {
+    $('panel-signin').style.display = tab==='signin'?'block':'none';
+    $('panel-signup').style.display = tab==='signup'?'block':'none';
+    $('tab-signin').classList.toggle('active', tab==='signin');
+    $('tab-signup').classList.toggle('active', tab==='signup');
+  },
+
+  toggleRemember() {
+    rememberMe = !rememberMe;
+    const box = $('remember-box');
+    box.className = 'checkbox-box' + (rememberMe?' checked':'');
+    box.innerHTML = rememberMe ? '<svg viewBox="0 0 10 8" width="10" height="8"><path d="M1 4l3 3 5-5" stroke="var(--bg)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '';
+  },
+
+  async signIn() {
+    const email = $('si-email').value.trim();
+    const pw    = $('si-pw').value;
+    const err   = $('si-err');
+    const btn   = $('si-btn');
+    err.style.display='none';
+    if (!email||!pw) { err.textContent='Enter email and password.'; err.style.display='block'; return; }
+    btn.textContent='Signing in...'; btn.disabled=true;
+    try {
+      const persistence = rememberMe ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION;
+      await auth.setPersistence(persistence);
+      await auth.signInWithEmailAndPassword(email, pw);
+      touchActive();
+    } catch(e) {
+      err.textContent = authErr(e.code);
+      err.style.display='block';
+      btn.textContent='Sign In'; btn.disabled=false;
+    }
+  },
+
+  async signUp() {
+    const name  = $('su-name').value.trim();
+    const email = $('su-email').value.trim();
+    const pw    = $('su-pw').value;
+    const pw2   = $('su-pw2').value;
+    const err   = $('su-err');
+    const btn   = $('su-btn');
+    err.style.display='none';
+    if (!name)  { err.textContent='Enter your display name.'; err.style.display='block'; return; }
+    if (!email) { err.textContent='Enter your email.'; err.style.display='block'; return; }
+    if (pw.length<6) { err.textContent='Password must be at least 6 characters.'; err.style.display='block'; return; }
+    if (pw!==pw2) { err.textContent='Passwords do not match.'; err.style.display='block'; return; }
+    btn.textContent='Creating...'; btn.disabled=true;
+    try {
+      const cred = await auth.createUserWithEmailAndPassword(email, pw);
+      await cred.user.updateProfile({displayName:name});
+      await db.collection('users').doc(cred.user.uid).set({
+        uid:cred.user.uid, name, email, nameLower:name.toLowerCase(),
+        avatarColor:randColor(), nameChanges:[], emailVerified:false,
+        createdAt:FS.FieldValue.serverTimestamp()
+      });
+      let verifyErr = null;
+      try { await cred.user.sendEmailVerification({url:location.href}); } catch(ve) { verifyErr = ve; }
+      btn.textContent='Create Account'; btn.disabled=false;
+      showVerifyScreen(email, verifyErr);
+    } catch(e) {
+      err.textContent = authErr(e.code);
+      err.style.display='block';
+      btn.textContent='Create Account'; btn.disabled=false;
+    }
+  },
+
+  async googleSignIn() {
+    try {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      provider.addScope('email');
+      provider.setCustomParameters({prompt:'select_account'});
+      await auth.signInWithPopup(provider);
+      touchActive();
+    } catch(e) {
+      if (e.code && e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
+        toast(authErr(e.code)||'Google sign-in failed.');
+      }
+    }
+  },
+
+  async forgotPw() {
+    const email = $('si-email').value.trim();
+    if (!email) { toast('Enter your email first.'); return; }
+    try { await auth.sendPasswordResetEmail(email); toast('Reset email sent!'); } catch(e) { toast(authErr(e.code)); }
+  },
+
+  signOut() {
+    TF.closeProfileMenu();
+    stopListeners();
+    localStorage.removeItem('tf_active');
+    auth.signOut();
+  },
+
+  // ── Verify ────────────────────────────────────────────────
+  async checkVerified() {
+    const btn = document.querySelector('#verify-screen button');
+    if (btn) { btn.textContent='Checking...'; btn.disabled=true; }
+    try {
+      await auth.currentUser?.reload();
+      if (auth.currentUser?.emailVerified) {
+        stopVerifyPolling();
+        auth.currentUser.getIdToken(true); // force refresh
+        // trigger onAuthStateChanged
+        const u = auth.currentUser;
+        auth.signOut().then(() => auth.signInWithEmailAndPassword(u.email,'').catch(()=>{}));
+        // Actually just reload
+        location.reload();
+      } else {
+        toast('Not verified yet. Check your inbox and spam.');
+        if (btn) { btn.textContent="I've Verified ✓"; btn.disabled=false; }
+      }
+    } catch(e) {
+      toast('Error: '+e.message);
+      if (btn) { btn.textContent="I've Verified ✓"; btn.disabled=false; }
+    }
+  },
+
+  async resendVerify() {
+    try {
+      await auth.currentUser?.sendEmailVerification({url:location.href});
+      toast('Verification email resent!');
+      $('verify-status').textContent='✅ Email resent — check inbox and spam.';
+      $('verify-status').style.color='var(--accent)';
+    } catch(e) { toast('Failed: '+authErr(e.code)); }
+  },
+
+  async cancelVerify() {
+    stopVerifyPolling();
+    await auth.signOut();
+  },
+
+  // ── Navigation ────────────────────────────────────────────
+  nav(view) {
+    document.querySelectorAll('.view,.view-bare').forEach(v=>v.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    const vEl = $('view-'+view);
+    if (vEl) vEl.classList.add('active');
+    const nEl = $('nav-'+view);
+    if (nEl) nEl.classList.add('active');
+    $('content').scrollTop = 0;
+    const fab = $('fab');
+
+    switch(view) {
+      case 'tanks':    renderTanks(); break;
+      case 'history':  TF.renderHistory(); break;
+      case 'stats':    TF.renderStats(); break;
+      case 'community': if(fab)fab.classList.add('show'); renderCommunity(); break;
+      case 'friends':  renderFriends(); break;
+      case 'messages': renderConversations(); break;
+      case 'notifications': renderNotifications(); break;
+      case 'admin':    if(isAdmin())renderAdmin(); break;
+    }
+    if (view!=='community' && fab) fab.classList.remove('show');
+    TF.closeProfileMenu();
+  },
+
+  // ── Profile menu ─────────────────────────────────────────
+  toggleProfileMenu() {
+    const dd = $('profile-dropdown');
+    const open = !dd.classList.contains('open');
+    dd.classList.toggle('open', open);
+    $('profile-chevron').style.transform = open ? 'rotate(180deg)' : '';
+    if (open) {
+      setTimeout(() => document.addEventListener('click', function handler(e) {
+        if (!$('profile-dropdown').contains(e.target) && !$('profile-btn').contains(e.target)) {
+          TF.closeProfileMenu();
+          document.removeEventListener('click', handler);
+        }
+      }), 10);
+    }
+  },
+
+  closeProfileMenu() {
+    $('profile-dropdown').classList.remove('open');
+    $('profile-chevron').style.transform = '';
+  },
+
+  // ── Modals ────────────────────────────────────────────────
+  closeModal(id) { $('modal-'+id).classList.remove('open'); },
+
+  // ── Tank CRUD ─────────────────────────────────────────────
+  openAddTank() {
+    tankPhotoData = null; tankEditId = null; treatDays = []; fastDays = []; tankReminders = {};
+    $('modal-tank-title').textContent = 'NEW TANK';
+    ['tank-name','tank-size','tank-filter','tank-temp','tank-wc','tank-stock'].forEach(id => { const el=$(id); if(el) el.value=''; });
+    $('tank-temp-unit').value = '°F';
+    $('tank-photo-preview').innerHTML = '<span style="font-size:24px">📷</span><span style="font-size:10px;color:var(--text3);margin-top:2px">Add photo</span>';
+    $('tank-photo-preview').style.border = '2px dashed var(--border2)';
+    $('save-tank-btn').textContent = 'Create Tank';
+    $('reminders-section').style.display = 'none';
+    $('reminders-toggle-icon').textContent = '+ Set up';
+    buildDayPickers(); buildReminderRows();
+    // Notif permission banner
+    const perm = typeof Notification!=='undefined' ? Notification.permission : 'denied';
+    $('notif-perm-banner').style.display = perm==='granted' ? 'none' : 'flex';
+    $('modal-tank').classList.add('open');
+  },
+
+  handleTankPhoto(e) {
+    const file = e.target.files[0]; if (!file) return;
+    compressImage(file,600,0.8).then(data => {
+      tankPhotoData = data;
+      $('tank-photo-preview').innerHTML = `<img src="${data}" style="width:100%;height:100%;object-fit:cover;border-radius:10px">`;
+      $('tank-photo-preview').style.border = '2px solid var(--accent)';
+    });
+  },
+
+  toggleRemindersSection() {
+    const sec = $('reminders-section');
+    const open = sec.style.display==='none';
+    sec.style.display = open?'block':'none';
+    $('reminders-toggle-icon').textContent = open?'− Hide':'+ Set up';
+  },
+
+  requestNotifPerm() {
+    if (!('Notification' in window)) { toast('Notifications not supported.'); return; }
+    Notification.requestPermission().then(p => {
+      $('notif-perm-banner').style.display = p==='granted'?'none':'flex';
+      if (p==='granted') toast('Notifications enabled! ✅');
+    });
+  },
+
+  async saveTank() {
+    const name = $('tank-name').value.trim();
+    if (!name) { toast('Enter a tank name!'); return; }
+    const btn = $('save-tank-btn');
+    btn.textContent='Saving...'; btn.disabled=true;
+    try {
+      const id = tankEditId || 'tank_'+Date.now();
+      let photoURL = null;
+      if (tankPhotoData) {
+        try { photoURL = await uploadPhoto(tankPhotoData, `users/${CU.uid}/tanks/${id}.jpg`); } catch(e) { console.warn('Photo upload failed:', e); }
+      } else if (tankEditId) {
+        const ex = tanks.find(t=>t.id===tankEditId);
+        photoURL = ex?.photoURL || null;
+      }
+      const tank = {
+        id, name, photoURL,
+        size:$('tank-size').value, filterType:$('tank-filter').value,
+        targetTemp:$('tank-temp').value, tempUnit:$('tank-temp-unit').value,
+        wcGoal:$('tank-wc').value, stock:$('tank-stock').value,
+        treatDays:[...treatDays], fastDays:[...fastDays],
+        createdAt: tankEditId ? (tanks.find(t=>t.id===tankEditId)?.createdAt||null) : FS.FieldValue.serverTimestamp()
+      };
+      await db.collection('users').doc(CU.uid).collection('tanks').doc(id).set(tank);
+      if (Object.keys(tankReminders).length) {
+        const r = loadReminders(); r[id]=tankReminders; saveReminders(r);
+      }
+      if (tankEditId) { tanks = tanks.map(t=>t.id===id?tank:t); }
+      else { tanks.unshift(tank); }
+      TF.closeModal('tank');
+      renderTanks();
+      toast(tankEditId?'Tank updated! 🐠':'Tank added! 🐠');
+    } catch(e) {
+      toast('Failed: '+e.message);
+      btn.textContent='Create Tank'; btn.disabled=false;
+    }
+  },
+
+  openTankLog(tankId) {
+    const tank = tanks.find(t=>t.id===tankId);
+    if (!tank) return;
+    $('log-tank-name').textContent = tank.name;
+    $('log-tank-sub').textContent = [tank.size, tank.filterType, tank.targetTemp?(tank.targetTemp+''+tank.tempUnit):''].filter(Boolean).join(' · ');
+    buildLogForm(tank);
+    TF.nav('log');
+    // Override nav to not trigger nav button highlight
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  },
+
+  deleteTank(tankId) {
+    if (!confirm('Delete this tank and all its logs?')) return;
+    db.collection('users').doc(CU.uid).collection('tanks').doc(tankId).delete();
+    logs.filter(l=>l.tankId===tankId).forEach(l => db.collection('users').doc(CU.uid).collection('logs').doc(l.id).delete());
+    tanks = tanks.filter(t=>t.id!==tankId);
+    logs  = logs.filter(l=>l.tankId!==tankId);
+    renderTanks();
+    TF.nav('tanks');
+    toast('Tank deleted.');
+  },
+
+  // ── History & Stats ───────────────────────────────────────
+  renderHistory() {
+    const filter = $('history-filter')?.value||'';
+    const sel = document.getElementById('history-filter');
+    if (sel) {
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">All Tanks</option>' + tanks.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('');
+      sel.value = prev;
+    }
+    const filtered = filter ? logs.filter(l=>l.tankId===filter) : logs;
+    const el = $('history-list');
+    if (!filtered.length) { el.innerHTML='<div class="empty-state"><div class="icon">📋</div><div class="title">No logs yet</div></div>'; return; }
+    el.innerHTML = filtered.map(log => {
+      const tank = tanks.find(t=>t.id===log.tankId);
+      return `<div class="card" style="cursor:pointer" onclick="TF.openLogDetail('${log.id}')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div style="font-size:14px;font-weight:600">${esc(log.date||'')}</div>
+            <div style="font-size:12px;color:var(--text3)">${esc(tank?.name||'Unknown tank')}</div>
+          </div>
+          <button onclick="event.stopPropagation();TF.deleteLog('${log.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px">🗑</button>
+        </div>
+        ${log.notes?`<div style="font-size:13px;color:var(--text2);margin-top:8px;line-height:1.4">${esc(log.notes.slice(0,100))}${log.notes.length>100?'…':''}</div>`:''}
+      </div>`;
+    }).join('');
+  },
+
+  openLogDetail(logId) {
+    const log = logs.find(l=>l.id===logId);
+    if (!log) return;
+    const tank = tanks.find(t=>t.id===log.tankId);
+    $('log-tank-name').textContent = tank?.name||'Log';
+    $('log-tank-sub').textContent = log.date||'';
+    buildLogDetail(log);
+    TF.nav('log');
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    $('nav-history').classList.add('active');
+  },
+
+  deleteLog(logId) {
+    if (!confirm('Delete this log?')) return;
+    db.collection('users').doc(CU.uid).collection('logs').doc(logId).delete();
+    logs = logs.filter(l=>l.id!==logId);
+    TF.renderHistory();
+    toast('Log deleted.');
+  },
+
+  renderStats() {
+    const sel = $('stats-tank');
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">Select a tank</option>' + tanks.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('');
+    if (prev) sel.value = prev;
+    const tankId = sel.value;
+    const el = $('stats-content');
+    if (!tankId) { el.innerHTML='<div style="text-align:center;padding:40px;color:var(--text3)">Select a tank to see stats.</div>'; return; }
+    const tankLogs = logs.filter(l=>l.tankId===tankId).slice(0,30).reverse();
+    if (!tankLogs.length) { el.innerHTML='<div style="text-align:center;padding:40px;color:var(--text3)">No logs yet for this tank.</div>'; return; }
+    const params = [
+      {key:'ph',    label:'pH',       color:'#00d4aa', min:6.5, max:7.5, unit:''},
+      {key:'ammonia', label:'Ammonia', color:'#ff4444', min:0,   max:0.25,unit:'ppm'},
+      {key:'nitrite', label:'Nitrite', color:'#ff6b35', min:0,   max:0.25,unit:'ppm'},
+      {key:'nitrate', label:'Nitrate', color:'#fbbf24', min:0,   max:20,  unit:'ppm'},
+      {key:'temp',  label:'Temp',     color:'#0090ff', min:null, max:null, unit:'°'},
+    ];
+    el.innerHTML = params.map(p => {
+      const pts = tankLogs.filter(l=>l[p.key]!==undefined&&l[p.key]!=='').map(l=>({date:l.date,val:parseFloat(l[p.key])})).filter(x=>!isNaN(x.val));
+      if (pts.length<2) return '';
+      return buildChart(pts, p);
+    }).join('');
+  },
+
+  // ── Community ─────────────────────────────────────────────
+  async loadMorePosts() { await renderCommunity(true); },
+
+  openNewPost() {
+    if (!CU) { toast('Please sign in to post.'); return; }
+    postPhotos = [];
+    $('post-text').value='';
+    $('post-photo-preview').innerHTML='';
+    $('post-err').style.display='none';
+    $('post-submit-btn').textContent='Post to Community'; $('post-submit-btn').disabled=false;
+    $('modal-post').classList.add('open');
+  },
+
+  handlePostPhotos(e) {
+    const files = Array.from(e.target.files);
+    files.slice(0,4).forEach(file => {
+      compressImage(file,800,0.8).then(data => {
+        postPhotos.push(data);
+        const prev = $('post-photo-preview');
+        prev.innerHTML += `<div style="position:relative;display:inline-block"><img src="${data}" style="width:80px;height:80px;object-fit:cover;border-radius:8px"><button onclick="this.parentNode.remove();postPhotos.splice(${postPhotos.length-1},1)" style="position:absolute;top:-4px;right:-4px;background:var(--danger);border:none;color:white;width:20px;height:20px;border-radius:50%;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center">✕</button></div>`;
+      });
+    });
+  },
+
+  async submitPost() {
+    const text = $('post-text').value.trim();
+    if (!text && !postPhotos.length) { $('post-err').textContent='Write something or add a photo.'; $('post-err').style.display='block'; return; }
+    const btn = $('post-submit-btn'); btn.textContent='Posting...'; btn.disabled=true;
+    try {
+      const urls = [];
+      for (let i=0; i<postPhotos.length; i++) {
+        try {
+          const url = await uploadPhoto(postPhotos[i], `posts/${CU.uid}_${Date.now()}_${i}.jpg`);
+          urls.push(url);
+        } catch(e) {
+          console.error('Photo upload failed:', e.code, e.message);
+          $('post-err').textContent = 'Photo upload failed: ' + (e.code||e.message) + '. Check your Firebase Storage rules.';
+          $('post-err').style.display = 'block';
+          btn.textContent='Post to Community'; btn.disabled=false;
+          return;
+        }
+      }
+      await db.collection('posts').add({
+        userId:CU.uid, userName:UP?.name||CU.displayName||'User',
+        userColor:UP?.avatarColor||AVATAR_COLORS[0],
+        text, imageURLs:urls, likes:[], commentCount:0,
+        createdAt:FS.FieldValue.serverTimestamp()
+      });
+      TF.closeModal('post');
+      renderCommunity();
+    } catch(e) {
+      $('post-err').textContent='Failed: '+e.message; $('post-err').style.display='block';
+      btn.textContent='Post to Community'; btn.disabled=false;
+    }
+  },
+
+  async toggleLike(postId) {
+    if (!CU) return;
+    const post = communityPosts.find(p=>p.id===postId); if (!post) return;
+    const liked = (post.likes||[]).includes(CU.uid);
+    const ref = db.collection('posts').doc(postId);
+    if (liked) {
+      await ref.update({likes: FS.FieldValue.arrayRemove(CU.uid)});
+      post.likes = post.likes.filter(id=>id!==CU.uid);
+    } else {
+      await ref.update({likes: FS.FieldValue.arrayUnion(CU.uid)});
+      post.likes = [...(post.likes||[]), CU.uid];
+      if (post.userId !== CU.uid) {
+        db.collection('users').doc(post.userId).collection('notifications').add({
+          type:'like', fromUserId:CU.uid, fromUserName:UP?.name||'Someone',
+          fromUserColor:UP?.avatarColor||AVATAR_COLORS[0],
+          postId, postText:(post.text||'').slice(0,60),
+          read:false, createdAt:FS.FieldValue.serverTimestamp()
+        }).catch(()=>{});
+      }
+    }
+    const card = document.getElementById('post-'+postId);
+    if (card) card.outerHTML = postCardHtml({...post});
+  },
+
+  async deletePost(postId) {
+    if (!confirm('Delete this post?')) return;
+    const commSnap = await db.collection('posts').doc(postId).collection('comments').get();
+    commSnap.docs.forEach(d=>d.ref.delete());
+    await db.collection('posts').doc(postId).delete();
+    communityPosts = communityPosts.filter(p=>p.id!==postId);
+    renderCommunity();
+    toast('Post deleted.');
+  },
+
+  openComments(postId) {
+    activePostId = postId;
+    const post = communityPosts.find(p=>p.id===postId);
+    $('comments-title').textContent = 'COMMENTS';
+    $('comment-input').value = '';
+    loadComments(postId);
+    $('modal-comments').classList.add('open');
+  },
+
+  async submitComment() {
+    const text = $('comment-input').value.trim();
+    if (!text || !activePostId) return;
+    $('comment-input').value = '';
+    try {
+      await db.collection('posts').doc(activePostId).collection('comments').add({
+        userId:CU.uid, userName:UP?.name||CU.displayName||'User',
+        userColor:UP?.avatarColor||AVATAR_COLORS[0],
+        text, createdAt:FS.FieldValue.serverTimestamp()
+      });
+      await db.collection('posts').doc(activePostId).update({commentCount: FS.FieldValue.increment(1)});
+      const post = communityPosts.find(p=>p.id===activePostId);
+      if (post) {
+        post.commentCount = (post.commentCount||0)+1;
+        if (post.userId!==CU.uid) {
+          db.collection('users').doc(post.userId).collection('notifications').add({
+            type:'comment', fromUserId:CU.uid, fromUserName:UP?.name||'Someone',
+            fromUserColor:UP?.avatarColor||AVATAR_COLORS[0],
+            postId:activePostId, postText:(post.text||'').slice(0,60),
+            read:false, createdAt:FS.FieldValue.serverTimestamp()
+          }).catch(()=>{});
+        }
+      }
+      loadComments(activePostId);
+    } catch(e) { toast('Failed: '+e.message); }
+  },
+
+  async deleteComment(commentId, postId) {
+    await db.collection('posts').doc(postId).collection('comments').doc(commentId).delete();
+    await db.collection('posts').doc(postId).update({commentCount: FS.FieldValue.increment(-1)});
+    const post = communityPosts.find(p=>p.id===postId);
+    if (post && post.commentCount > 0) post.commentCount--;
+    loadComments(postId);
+  },
+
+  // ── Friends ───────────────────────────────────────────────
+  async searchUsers(q) {
+    const el = $('friend-search-results');
+    if (q.length < 2) { el.innerHTML=''; return; }
+    el.innerHTML = '<div style="padding:10px 16px;color:var(--text3);font-size:13px">Searching...</div>';
+    try {
+      const snap = await db.collection('users').get();
+      const ql = q.toLowerCase();
+      const results = snap.docs.map(d=>({id:d.id,...d.data()}))
+        .filter(u=>u.id!==CU.uid && (u.nameLower||u.name||'').toLowerCase().includes(ql));
+      if (!results.length) { el.innerHTML='<div style="padding:10px 16px;color:var(--text3);font-size:13px">No users found.</div>'; return; }
+      // Get friendship status
+      const [sent, recv] = await Promise.all([
+        db.collection('friendRequests').where('fromUid','==',CU.uid).get(),
+        db.collection('friendRequests').where('toUid','==',CU.uid).where('status','==','accepted').get()
+      ]);
+      const sentTo = new Set(sent.docs.map(d=>d.data().toUid));
+      const friends = new Set([
+        ...sent.docs.filter(d=>d.data().status==='accepted').map(d=>d.data().toUid),
+        ...recv.docs.map(d=>d.data().fromUid)
+      ]);
+      el.innerHTML = results.map(u => {
+        const color = u.avatarColor||AVATAR_COLORS[0];
+        const isFriend = friends.has(u.id);
+        const pending  = sentTo.has(u.id) && !isFriend;
+        const btnHtml = isFriend
+          ? `<button onclick="TF.openDmWith('${u.id}','${esc(u.name||'')}','${color}')" style="background:rgba(0,212,170,0.1);border:1px solid var(--border2);color:var(--accent);font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:var(--mono)">💬 DM</button>`
+          : pending
+          ? `<span style="font-size:11px;color:var(--text3);font-family:var(--mono)">Sent ✓</span>`
+          : `<button onclick="TF.sendFriendReq('${u.id}','${esc(u.name||'')}','${color}')" style="background:rgba(0,212,170,0.1);border:1px solid var(--border2);color:var(--accent);font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:var(--mono)">+ Add</button>`;
+        return `<div class="friend-card" style="border-bottom:1px solid var(--border)">
+          ${avatarHtml(u.name,color,44)}
+          <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600">${esc(u.name||'')}</div></div>
+          ${btnHtml}
+        </div>`;
+      }).join('');
+    } catch(e) { el.innerHTML=`<div style="padding:10px 16px;color:var(--danger);font-size:13px">${e.message}</div>`; }
+  },
+
+  async sendFriendReq(toUid, toName, toColor) {
+    try {
+      await db.collection('friendRequests').doc(CU.uid+'_'+toUid).set({
+        fromUid:CU.uid, fromName:UP?.name||'Someone', fromColor:UP?.avatarColor||AVATAR_COLORS[0],
+        toUid, toName, toColor: toColor||AVATAR_COLORS[0], status:'pending', ts:FS.FieldValue.serverTimestamp()
+      });
+      await db.collection('users').doc(toUid).collection('notifications').add({
+        type:'friendRequest', fromUserId:CU.uid, fromUserName:UP?.name||'Someone',
+        fromUserColor:UP?.avatarColor||AVATAR_COLORS[0], read:false, createdAt:FS.FieldValue.serverTimestamp()
+      });
+      toast('Friend request sent!');
+      TF.searchUsers($('friend-search').value);
+    } catch(e) { toast('Failed: '+e.message); }
+  },
+
+  async respondFriendReq(reqId, fromUid, fromName, fromColor, accept) {
+    await db.collection('friendRequests').doc(reqId).update({status: accept?'accepted':'rejected'});
+    if (accept) {
+      db.collection('users').doc(fromUid).collection('notifications').add({
+        type:'friendAccepted', fromUserId:CU.uid, fromUserName:UP?.name||'Someone',
+        fromUserColor:UP?.avatarColor||AVATAR_COLORS[0], read:false, createdAt:FS.FieldValue.serverTimestamp()
+      }).catch(()=>{});
+      toast('Friend added!');
+    }
+    renderFriends();
+  },
+
+  // ── Messages ──────────────────────────────────────────────
+  async openDmWith(uid, name, color) {
+    dmUserId = uid; dmConvId = convId(CU.uid, uid);
+    $('dm-name').textContent = name;
+    $('dm-avatar').innerHTML = '';
+    $('dm-avatar').style.cssText = `width:32px;height:32px;border-radius:50%;background:${color}22;color:${color};border:2px solid ${color}44;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;font-family:var(--mono);flex-shrink:0`;
+    $('dm-avatar').textContent = initial(name);
+    $('dm-messages').innerHTML = '<div style="text-align:center;padding:20px"><div class="spinner"></div></div>';
+    TF.nav('dm');
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    // Mark read
+    db.collection('conversations').doc(dmConvId).update({[`unread.${CU.uid}`]: 0}).catch(()=>{});
+    // Subscribe
+    if (unsubDm) unsubDm();
+    unsubDm = db.collection('conversations').doc(dmConvId).collection('messages')
+      .orderBy('ts','asc').limit(100)
+      .onSnapshot(snap => {
+        const el = $('dm-messages');
+        if (!snap.docs.length) { el.innerHTML='<div style="text-align:center;padding:40px;color:var(--text3)">No messages yet.<br>Say hello! 👋</div>'; return; }
+        el.innerHTML = snap.docs.map(d => {
+          const m = d.data();
+          const mine = m.senderUid === CU.uid;
+          return `<div style="display:flex;flex-direction:column;align-items:${mine?'flex-end':'flex-start'}">
+            <div class="dm-bubble ${mine?'mine':'theirs'}">${esc(m.text||'')}</div>
+            <div class="dm-time ${mine?'mine':'theirs'}">${timeAgo(m.ts)}</div>
+          </div>`;
+        }).join('');
+        el.scrollTop = el.scrollHeight;
+      }, e => console.warn('DM error:', e));
+  },
+
+  closeDm() {
+    if (unsubDm) { unsubDm(); unsubDm=null; }
+    dmConvId=null; dmUserId=null;
+    TF.nav('messages');
+  },
+
+  async sendDm() {
+    const text = $('dm-input').value.trim();
+    if (!text || !dmConvId) return;
+    $('dm-input').value=''; $('dm-input').style.height='40px';
+    try {
+      const myName  = UP?.name||CU.displayName||'Someone';
+      const myColor = UP?.avatarColor||AVATAR_COLORS[0];
+      const convRef = db.collection('conversations').doc(dmConvId);
+      const convSnap = await convRef.get();
+      if (!convSnap.exists) {
+        await convRef.set({
+          members:[CU.uid,dmUserId],
+          memberNames:{[CU.uid]:myName,[dmUserId]:$('dm-name').textContent},
+          memberColors:{[CU.uid]:myColor,[dmUserId]:$('dm-avatar').style.color||AVATAR_COLORS[0]},
+          lastMsg:text, lastTs:FS.FieldValue.serverTimestamp(),
+          unread:{[dmUserId]:1,[CU.uid]:0}
+        });
+      } else {
+        await convRef.update({lastMsg:text, lastTs:FS.FieldValue.serverTimestamp(), [`unread.${dmUserId}`]:FS.FieldValue.increment(1)});
+      }
+      await convRef.collection('messages').add({senderUid:CU.uid, senderName:myName, text, ts:FS.FieldValue.serverTimestamp()});
+      db.collection('users').doc(dmUserId).collection('notifications').add({
+        type:'dm', fromUserId:CU.uid, fromUserName:myName, fromUserColor:myColor,
+        msgPreview:text.slice(0,60), read:false, createdAt:FS.FieldValue.serverTimestamp()
+      }).catch(()=>{});
+    } catch(e) { toast('Failed: '+e.message); $('dm-input').value=text; }
+  },
+
+  // ── Notifications ─────────────────────────────────────────
+  async markAllRead() {
+    const snap = await db.collection('users').doc(CU.uid).collection('notifications').where('read','==',false).get();
+    snap.docs.forEach(d=>d.ref.update({read:true}));
+    renderNotifications();
+  },
+
+  tapNotif(id, type, postId) {
+    db.collection('users').doc(CU.uid).collection('notifications').doc(id).update({read:true}).catch(()=>{});
+    if (type==='friendRequest'||type==='friendAccepted') TF.nav('friends');
+    else if (type==='dm') TF.nav('messages');
+    else if (postId) TF.nav('community');
+  },
+
+  // ── Profile/Name editing ─────────────────────────────────
+  async openEditProfile() {
+    if (!CU) return;
+    try {
+      const snap = await db.collection('users').doc(CU.uid).get();
+      if (snap.exists) UP = snap.data();
+    } catch(e) {}
+    const color = UP?.avatarColor||AVATAR_COLORS[0];
+    const name = UP?.name||CU.displayName||'';
+    const changes = (UP?.nameChanges||[]).filter(ts=>Date.now()-ts<NAME_CHANGE_WINDOW_MS);
+    const remaining = NAME_CHANGE_LIMIT - changes.length;
+    $('edit-avatar').style.cssText=`width:48px;height:48px;border-radius:50%;background:${color}22;color:${color};border:2px solid ${color}44;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;font-family:var(--mono)`;
+    $('edit-avatar').textContent = initial(name);
+    $('edit-current-name').textContent = name;
+    $('edit-changes-left').textContent = remaining>0 ? `${remaining} change${remaining!==1?'s':''} left this 30-day window` : '⛔ No changes left';
+    $('edit-changes-left').style.color = remaining>0?'var(--accent)':'var(--danger)';
+    $('new-name-input').value=''; $('new-name-input').disabled=remaining<=0;
+    $('name-avail').textContent='';
+    $('edit-err').style.display='none';
+    $('save-name-btn').disabled=remaining<=0; $('save-name-btn').style.opacity=remaining<=0?'0.5':'1';
+    nameAvailable=false;
+    $('modal-profile').classList.add('open');
+  },
+
+  checkNameAvail(val) {
+    const el = $('name-avail');
+    clearTimeout(nameCheckTimer);
+    nameAvailable = false;
+    const name = val.trim();
+    if (!name) { el.textContent=''; return; }
+    if (name.length<2) { el.textContent='⚠️ Name must be at least 2 characters.'; el.style.color='var(--warn)'; return; }
+    if (name===(UP?.name||'')) { el.textContent="⚠️ That's already your name."; el.style.color='var(--warn)'; return; }
+    el.textContent='Checking...'; el.style.color='var(--text3)';
+    nameCheckTimer = setTimeout(async()=>{
+      try {
+        const snap = await db.collection('users').where('nameLower','==',name.toLowerCase()).get();
+        const taken = snap.docs.some(d=>d.id!==CU.uid);
+        if (taken) { nameAvailable=false; el.textContent='✗ Name taken.'; el.style.color='var(--danger)'; }
+        else { nameAvailable=true; el.textContent='✓ Available!'; el.style.color='var(--accent)'; }
+      } catch(e) { nameAvailable=true; el.textContent='✓ Available (will confirm on save)'; el.style.color='var(--accent)'; }
+    }, 600);
+  },
+
+  async saveName() {
+    const newName = $('new-name-input').value.trim();
+    const err = $('edit-err'); const btn = $('save-name-btn');
+    err.style.display='none';
+    if (!newName) { err.textContent='Enter a name.'; err.style.display='block'; return; }
+    if (newName.length<2) { err.textContent='Name must be at least 2 characters.'; err.style.display='block'; return; }
+    if (newName===(UP?.name||'')) { err.textContent='That is already your current name.'; err.style.display='block'; return; }
+    if (!nameAvailable) { err.textContent='Please wait for availability check.'; err.style.display='block'; return; }
+    btn.textContent='Saving...'; btn.disabled=true;
+    try {
+      const now = Date.now();
+      const changes = (UP?.nameChanges||[]).filter(ts=>now-ts<NAME_CHANGE_WINDOW_MS);
+      if (changes.length>=NAME_CHANGE_LIMIT) { err.textContent='Change limit reached.'; err.style.display='block'; btn.textContent='Save Name'; btn.disabled=false; return; }
+      const updatedChanges = [...changes, now];
+      await db.collection('users').doc(CU.uid).update({name:newName, nameLower:newName.toLowerCase(), nameChanges:updatedChanges});
+      await CU.updateProfile({displayName:newName});
+      UP.name=newName; UP.nameLower=newName.toLowerCase(); UP.nameChanges=updatedChanges;
+      updateProfileMenu();
+      TF.closeModal('profile');
+      toast(`Name updated to "${newName}"! ✅`);
+    } catch(e) { err.textContent='Failed: '+e.message; err.style.display='block'; btn.textContent='Save Name'; btn.disabled=false; }
+  },
+
+  // ── Admin ─────────────────────────────────────────────────
+  adminTab(tab) {
+    currentAdminTab = tab;
+    ['posts','users'].forEach(t=>{
+      const btn = $('atab-'+t);
+      btn.style.background = t===tab?'var(--surface)':'transparent';
+      btn.style.color = t===tab?'var(--accent)':'var(--text3)';
+    });
+    if (tab==='posts') renderAdminPosts(); else renderAdminUsers();
+  },
+
+  async adminDeletePost(postId) {
+    if (!confirm('Delete this post and all comments?')) return;
+    const commSnap = await db.collection('posts').doc(postId).collection('comments').get();
+    commSnap.docs.forEach(d=>d.ref.delete());
+    await db.collection('posts').doc(postId).delete();
+    toast('Post deleted.'); renderAdminPosts();
+  },
+
+  async adminEditPost(postId) {
+    const snap = await db.collection('posts').doc(postId).get();
+    if (!snap.exists) { toast('Not found.'); return; }
+    const text = prompt('Edit post text:', snap.data().text||'');
+    if (text===null) return;
+    await db.collection('posts').doc(postId).update({text});
+    toast('Post updated!'); renderAdminPosts();
+  },
+
+  async adminBanUser(uid, name, days) {
+    const label = days>=9999?'permanently':`for ${days} day${days!==1?'s':''}`;
+    if (!confirm(`Ban ${name} ${label}?`)) return;
+    const until = days>=9999 ? new Date('2099-01-01') : new Date(Date.now()+days*86400000);
+    await db.collection('users').doc(uid).update({bannedUntil:FS.Timestamp.fromDate(until), bannedReason:`Banned by admin`});
+    toast(`${name} banned ${label}.`); renderAdminUsers();
+  },
+
+  async adminUnban(uid) {
+    await db.collection('users').doc(uid).update({bannedUntil:null, bannedReason:null});
+    toast('User unbanned.'); renderAdminUsers();
+  },
+
+  async adminDeleteUser(uid, name) {
+    if (!confirm(`Permanently delete ${name}'s account? This cannot be undone.`)) return;
+    try {
+      const [posts,tanks,logs,notifs] = await Promise.all([
+        db.collection('posts').where('userId','==',uid).get(),
+        db.collection('users').doc(uid).collection('tanks').get(),
+        db.collection('users').doc(uid).collection('logs').get(),
+        db.collection('users').doc(uid).collection('notifications').get()
+      ]);
+      for (const p of posts.docs) {
+        const comms = await db.collection('posts').doc(p.id).collection('comments').get();
+        comms.docs.forEach(c=>c.ref.delete());
+        p.ref.delete();
+      }
+      tanks.docs.forEach(d=>d.ref.delete());
+      logs.docs.forEach(d=>d.ref.delete());
+      notifs.docs.forEach(d=>d.ref.delete());
+      await db.collection('users').doc(uid).delete();
+      toast(`${name}'s account deleted.`); renderAdminUsers();
+    } catch(e) { toast('Error: '+e.message); }
+  },
+
+  viewImg(src) {
+    $('img-viewer-img').src=src;
+    $('img-viewer').classList.add('open');
+  },
+
+  carouselGo(id, index) {
+    const track = $(id);
+    if (!track) return;
+    track.scrollTo({left: index * track.offsetWidth, behavior:'smooth'});
+  },
+
+  carouselScroll(id, total) {
+    const track = $(id);
+    if (!track) return;
+    const index = Math.round(track.scrollLeft / track.offsetWidth);
+    const dotsEl = $(id+'-dots');
+    if (!dotsEl) return;
+    dotsEl.querySelectorAll('.carousel-dot').forEach((d, i) => {
+      d.classList.toggle('active', i === index);
+    });
+  },
+};
+
+// ── Render functions ──────────────────────────────────────────
+
+function renderTanks() {
+  const el = $('tank-list');
+  if (!tanks.length) {
+    el.innerHTML=`<div class="empty-state"><div class="icon">🐠</div><div class="title">No tanks yet</div><div style="font-size:13px;color:var(--text3);margin-top:4px">Add your first tank below</div></div>`;
+    return;
+  }
+  el.innerHTML = tanks.map(t => {
+    const tankLogs = logs.filter(l=>l.tankId===t.id);
+    const last = tankLogs[0];
+    const thumb = t.photoURL
+      ? `<img class="tank-thumb" src="${t.photoURL}" alt="${esc(t.name)}">`
+      : `<div class="tank-thumb">🐠</div>`;
+    return `<div class="tank-card" onclick="TF.openTankLog('${t.id}')">
+      ${thumb}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:16px;font-weight:700;margin-bottom:2px">${esc(t.name)}</div>
+        <div style="font-size:12px;color:var(--text3)">${[t.size,t.filterType,t.targetTemp?(t.targetTemp+t.tempUnit):''].filter(Boolean).join(' · ')}</div>
+        ${last?`<div style="font-size:12px;color:var(--text3);margin-top:4px">Last log: ${esc(last.date)}</div>`:`<div style="font-size:12px;color:var(--accent3);margin-top:4px">No logs yet</div>`}
+        ${last&&last.ph?`<div style="font-size:11px;color:var(--text3);margin-top:2px">pH ${last.ph}${last.temp?` · ${last.temp}${t.tempUnit}`:''}${last.ammonia?` · NH₃ ${last.ammonia}`:''}</div>`:''}
+      </div>
+      <button onclick="event.stopPropagation();TF.deleteTank('${t.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:4px;font-size:16px;align-self:flex-start">🗑</button>
+    </div>`;
+  }).join('');
+}
+
+function buildLogForm(tank) {
+  const today = new Date().toISOString().slice(0,10);
+  const existing = logs.find(l=>l.tankId===tank.id && l.date===today) || {};
+  const PARAMS = [
+    {key:'ph',      label:'pH',       safe:[6.5,7.5],  warnColor:'#ff6b35'},
+    {key:'ammonia', label:'Ammonia',  safe:[0,0.25],   warnColor:'#ff4444'},
+    {key:'nitrite', label:'Nitrite',  safe:[0,0.25],   warnColor:'#ff6b35'},
+    {key:'nitrate', label:'Nitrate',  safe:[0,20],     warnColor:'#fbbf24'},
+    {key:'gh',      label:'GH',       safe:[4,12],     warnColor:'#a78bfa'},
+    {key:'kh',      label:'KH',       safe:[3,10],     warnColor:'#a78bfa'},
+    {key:'temp',    label:'Temp',     safe:null,       warnColor:'#0090ff'},
+  ];
+  const paramRows = PARAMS.map(p => {
+    const val = existing[p.key]||'';
+    let dot = 'var(--border2)';
+    if (val!=='' && p.safe) {
+      const n = parseFloat(val);
+      dot = (!isNaN(n) && n>=p.safe[0] && n<=p.safe[1]) ? 'var(--accent)' : '#ff4444';
+    }
+    return `<div class="param-row">
+      <div class="param-dot" id="dot-${p.key}" style="background:${dot}"></div>
+      <div class="param-label">${p.label}</div>
+      <input class="param-input" type="number" step="0.01" id="log-${p.key}" value="${val}" placeholder="—"
+        oninput="updateParamDot('${p.key}',this.value,${p.safe?JSON.stringify(p.safe):'null'})">
+      <div class="param-status" id="status-${p.key}"></div>
+    </div>`;
+  }).join('');
+
+  const amDays = existing.feedingAm||[];
+  const pmDays = existing.feedingPm||[];
+  const feedGrid = DAYS.map(d=>`
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">${d}</div>
+      <div onclick="toggleFeedDay('am','${d}')" id="feed-am-${d}" style="width:28px;height:28px;border-radius:8px;border:1.5px solid ${amDays.includes(d)?'var(--accent)':'var(--border2)'};background:${amDays.includes(d)?'rgba(0,212,170,0.1)':'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px">${amDays.includes(d)?'✓':'·'}</div>
+      <div onclick="toggleFeedDay('pm','${d}')" id="feed-pm-${d}" style="width:28px;height:28px;border-radius:8px;border:1.5px solid ${pmDays.includes(d)?'var(--accent2)':'var(--border2)'};background:${pmDays.includes(d)?'rgba(0,144,255,0.1)':'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px">${pmDays.includes(d)?'✓':'·'}</div>
+    </div>`).join('');
+
+  $('log-form').innerHTML = `
+    <div style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:1px">DATE</div>
+        <input type="date" id="log-date" value="${existing.date||today}" style="width:auto;padding:6px 10px;font-size:13px">
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title" style="margin-bottom:10px">💧 WATER PARAMETERS</div>
+      ${paramRows}
+    </div>
+
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title" style="margin-bottom:12px">🍽 FEEDING</div>
+      <div style="display:flex;justify-content:space-around;margin-bottom:4px">
+        <div style="font-size:11px;color:var(--accent);font-family:var(--mono)">🌅 AM</div>
+        <div style="font-size:11px;color:var(--accent2);font-family:var(--mono)">🌆 PM</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">${feedGrid}</div>
+    </div>
+
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title" style="margin-bottom:10px">📝 NOTES</div>
+      <textarea id="log-notes" placeholder="Observations, treatments, changes..." style="height:80px">${esc(existing.notes||'')}</textarea>
+    </div>
+
+    <button class="btn btn-primary" onclick="saveLog('${tank.id}','${existing.id||''}')">Save Log</button>
+    <div style="height:20px"></div>
+  `;
+
+  // Store feed day state
+  window._logFeedAm = [...amDays];
+  window._logFeedPm = [...pmDays];
+}
+
+function buildLogDetail(log) {
+  const PARAMS = ['ph','ammonia','nitrite','nitrate','gh','kh','temp'];
+  const labels = {ph:'pH',ammonia:'Ammonia',nitrite:'Nitrite',nitrate:'Nitrate',gh:'GH',kh:'KH',temp:'Temp'};
+  const paramHtml = PARAMS.filter(k=>log[k]!==undefined&&log[k]!=='').map(k=>`
+    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:13px;color:var(--text3)">${labels[k]}</span>
+      <span style="font-size:13px;font-weight:600">${log[k]}</span>
+    </div>`).join('');
+  $('log-form').innerHTML = `
+    <div class="card" style="margin-bottom:12px">${paramHtml||'<div style="color:var(--text3);font-size:13px">No parameters recorded.</div>'}</div>
+    ${log.notes?`<div class="card"><div class="card-title" style="margin-bottom:8px">NOTES</div><div style="font-size:14px;color:var(--text2);line-height:1.5">${esc(log.notes)}</div></div>`:''}
+  `;
+}
+
+window.updateParamDot = function(key, val, safe) {
+  const dot = $('dot-'+key);
+  if (!dot) return;
+  if (val==='' || val===null) { dot.style.background='var(--border2)'; return; }
+  const n = parseFloat(val);
+  if (!safe) { dot.style.background='var(--accent2)'; return; }
+  dot.style.background = (!isNaN(n) && n>=safe[0] && n<=safe[1]) ? 'var(--accent)' : '#ff4444';
+};
+
+window.toggleFeedDay = function(period, day) {
+  const arr = period==='am' ? window._logFeedAm : window._logFeedPm;
+  const i = arr.indexOf(day);
+  const accentColor = period==='am'?'var(--accent)':'var(--accent2)';
+  const bgColor = period==='am'?'rgba(0,212,170,0.1)':'rgba(0,144,255,0.1)';
+  if (i>=0) arr.splice(i,1); else arr.push(day);
+  const el = $('feed-'+period+'-'+day);
+  if (el) {
+    const active = arr.includes(day);
+    el.style.borderColor = active?accentColor:'var(--border2)';
+    el.style.background = active?bgColor:'transparent';
+    el.textContent = active?'✓':'·';
+  }
+};
+
+window.saveLog = async function(tankId, existingId) {
+  const logData = {
+    tankId, date:$('log-date').value,
+    ph:$('log-ph').value, ammonia:$('log-ammonia').value,
+    nitrite:$('log-nitrite').value, nitrate:$('log-nitrate').value,
+    gh:$('log-gh').value, kh:$('log-kh').value, temp:$('log-temp').value,
+    feedingAm:[...(window._logFeedAm||[])], feedingPm:[...(window._logFeedPm||[])],
+    notes:$('log-notes').value,
+  };
+  try {
+    if (existingId) {
+      await db.collection('users').doc(CU.uid).collection('logs').doc(existingId).set({...logData, id:existingId});
+      logs = logs.map(l=>l.id===existingId?{...logData,id:existingId}:l);
+    } else {
+      const ref = await db.collection('users').doc(CU.uid).collection('logs').add(logData);
+      logs.unshift({...logData, id:ref.id});
+    }
+    toast('Log saved! ✅');
+    TF.nav('tanks');
+  } catch(e) { toast('Failed: '+e.message); }
+};
+
+function buildDayPickers() {
+  ['treat','fast'].forEach(type => {
+    const el = $(type+'-days');
+    if (!el) return;
+    const selected = type==='treat'?treatDays:fastDays;
+    el.innerHTML = DAYS.map(d=>`<div class="day-pill${selected.includes(d)?' selected':''}" onclick="toggleDay('${type}','${d}')">${d}</div>`).join('');
+  });
+}
+
+window.toggleDay = function(type, day) {
+  const arr = type==='treat'?treatDays:fastDays;
+  const i = arr.indexOf(day);
+  if (i>=0) arr.splice(i,1); else arr.push(day);
+  buildDayPickers();
+};
+
+function buildReminderRows() {
+  const el = $('reminder-rows'); if (!el) return;
+  el.innerHTML = REMINDER_TYPES.map(rt=>{
+    const cfg = tankReminders[rt.key]||{enabled:false,time:'',days:[]};
+    const en = cfg.enabled;
+    return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${en?'8px':'0'}">
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:15px">${rt.icon}</span><span style="font-size:13px;font-weight:500">${rt.label}</span></div>
+        <label class="toggle"><input type="checkbox" ${en?'checked':''} onchange="toggleReminder('${rt.key}',this.checked)"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+      </div>
+      ${en?`<div style="padding-left:26px">
+        ${rt.hasTime?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><label style="font-size:11px;color:var(--text3);width:auto;margin:0">Time</label><input type="time" value="${cfg.time||''}" onchange="setReminderTime('${rt.key}',this.value)" style="width:130px;padding:5px 8px;font-size:13px;border-radius:6px"></div>`:''}
+        ${rt.hasDays?`<div><div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:5px">DAYS</div><div style="display:flex;gap:4px;flex-wrap:wrap">${DAYS.map(d=>{const sel=(cfg.days||[]).includes(d);return`<div onclick="toggleReminderDay('${rt.key}','${d}')" class="day-pill${sel?' selected':''}" style="padding:4px 8px;font-size:11px">${d}</div>`;}).join('')}</div></div>`:''}
+      </div>`:''}
+    </div>`;
+  }).join('');
+}
+
+window.toggleReminder = function(key, en) { if(!tankReminders[key])tankReminders[key]={enabled:false,time:'',days:[]}; tankReminders[key].enabled=en; buildReminderRows(); };
+window.setReminderTime = function(key, t) { if(!tankReminders[key])tankReminders[key]={enabled:true,time:'',days:[]}; tankReminders[key].time=t; };
+window.toggleReminderDay = function(key, day) { if(!tankReminders[key])tankReminders[key]={enabled:true,time:'',days:[]}; const days=tankReminders[key].days||[]; const i=days.indexOf(day); if(i>=0)days.splice(i,1);else days.push(day); tankReminders[key].days=days; buildReminderRows(); };
+
+function loadReminders() { try{return JSON.parse(localStorage.getItem('tf_reminders_'+(CU?.uid||''))||'{}')}catch(e){return{}} }
+function saveReminders(r) { localStorage.setItem('tf_reminders_'+(CU?.uid||''),JSON.stringify(r)); }
+
+async function renderCommunity(append=false) {
+  const feedEl = $('community-feed');
+  const moreEl = $('community-more');
+  if (!append) { lastPostDoc=null; communityPosts=[]; feedEl.innerHTML='<div style="text-align:center;padding:40px"><div class="spinner"></div></div>'; if(moreEl)moreEl.style.display='none'; }
+  try {
+    let q = db.collection('posts').orderBy('createdAt','desc').limit(POSTS_PER_PAGE);
+    if (append && lastPostDoc) q = q.startAfter(lastPostDoc);
+    const snap = await q.get();
+    if (!append) feedEl.innerHTML='';
+    if (snap.empty && !append) { feedEl.innerHTML='<div class="empty-state"><div class="icon">🌊</div><div class="title">No posts yet</div><div style="font-size:13px">Be the first to share!</div></div>'; return; }
+    if (!snap.empty) lastPostDoc = snap.docs[snap.docs.length-1];
+    const posts = snap.docs.map(d=>({id:d.id,...d.data()}));
+    if (!append) communityPosts=posts; else communityPosts=[...communityPosts,...posts];
+    feedEl.innerHTML += posts.map(postCardHtml).join('');
+    if (moreEl) moreEl.style.display = snap.docs.length===POSTS_PER_PAGE?'block':'none';
+  } catch(e) { feedEl.innerHTML=`<div style="text-align:center;padding:40px;color:var(--danger);font-size:13px">Error loading posts.<br>${e.message}<br><button class="btn btn-secondary btn-sm" onclick="renderCommunity()" style="margin-top:12px">Retry</button></div>`; }
+}
+
+function postCardHtml(p) {
+  const liked = (p.likes||[]).includes(CU?.uid||'');
+  const canDelete = p.userId===CU?.uid || isAdmin();
+  const ts = timeAgo(p.createdAt);
+  const imgs = (p.imageURLs||[]).length;
+  const imgsHtml = imgs ? (() => {
+    const carouselId = 'car-' + p.id;
+    const slides = p.imageURLs.map((url, i) =>
+      `<img src="${url}" onclick="TF.viewImg('${url}')" alt="" loading="lazy">`
+    ).join('');
+    const dots = imgs > 1 ? `<div class="post-carousel-dots" id="${carouselId}-dots">` +
+      p.imageURLs.map((_, i) => `<div class="carousel-dot${i===0?' active':''}" onclick="TF.carouselGo('${carouselId}',${i})"></div>`).join('') +
+      `</div>` : '';
+    return `<div class="post-carousel">
+      <div class="post-carousel-track" id="${carouselId}" onscroll="TF.carouselScroll('${carouselId}',${imgs})">${slides}</div>
+      ${dots}
+    </div>`;
+  })() : '';
+  return `<div class="post-card" id="post-${p.id}">
+    <div class="post-header">
+      ${avatarHtml(p.userName, p.userColor||AVATAR_COLORS[0], 36)}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600">${esc(p.userName||'User')}</div>
+        <div style="font-size:11px;color:var(--text3)">${ts}</div>
+      </div>
+      ${canDelete?`<button onclick="TF.deletePost('${p.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:4px;font-size:16px">🗑</button>`:''}
+    </div>
+    <div class="post-body">
+      ${p.text?`<div class="post-text">${esc(p.text)}</div>`:''}
+      ${imgsHtml}
+    </div>
+    <div class="post-actions">
+      <button class="action-btn${liked?' liked':''}" onclick="TF.toggleLike('${p.id}')">
+        <svg viewBox="0 0 24 24" fill="${liked?'var(--danger)':'none'}" stroke="${liked?'var(--danger)':'currentColor'}" stroke-width="2" width="16" height="16"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        ${(p.likes||[]).length||''}
+      </button>
+      <button class="action-btn comment" onclick="TF.openComments('${p.id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        ${p.commentCount||''}
+      </button>
+    </div>
+  </div>`;
+}
+
+async function loadComments(postId) {
+  const el = $('comments-list');
+  el.innerHTML = '<div style="text-align:center;padding:20px"><div class="spinner"></div></div>';
+  try {
+    const snap = await db.collection('posts').doc(postId).collection('comments').orderBy('createdAt','asc').get();
+    if (snap.empty) { el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">No comments yet.</div>'; return; }
+    el.innerHTML = snap.docs.map(d=>{
+      const c={id:d.id,...d.data()};
+      const canDel = c.userId===CU?.uid||isAdmin();
+      return `<div style="display:flex;gap:8px;margin-bottom:12px">
+        ${avatarHtml(c.userName,c.userColor||AVATAR_COLORS[0],30)}
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+            <span style="font-size:12px;font-weight:600">${esc(c.userName||'')}</span>
+            <span style="font-size:11px;color:var(--text3)">${timeAgo(c.createdAt)}</span>
+            ${canDel?`<button onclick="TF.deleteComment('${c.id}','${postId}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;margin-left:auto">✕</button>`:''}
+          </div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.4">${esc(c.text||'')}</div>
+        </div>
+      </div>`;
+    }).join('');
+    el.scrollTop = el.scrollHeight;
+  } catch(e) { el.innerHTML=`<div style="padding:12px;color:var(--danger);font-size:13px">${e.message}</div>`; }
+}
+
+async function renderFriends() {
+  // Load requests
+  const reqEl = $('friend-requests');
+  const friendsEl = $('friends-list');
+  reqEl.innerHTML = '<div style="padding:8px 0;color:var(--text3);font-size:13px">Loading...</div>';
+  try {
+    const [incoming, sent, accepted1, accepted2] = await Promise.all([
+      db.collection('friendRequests').where('toUid','==',CU.uid).where('status','==','pending').get(),
+      db.collection('friendRequests').where('fromUid','==',CU.uid).where('status','==','accepted').get(),
+      db.collection('friendRequests').where('toUid','==',CU.uid).where('status','==','accepted').get(),
+      db.collection('friendRequests').where('fromUid','==',CU.uid).where('status','==','accepted').get()
+    ]);
+    if (incoming.empty) reqEl.innerHTML='<div style="padding:4px 0 12px;font-size:13px;color:var(--text3)">No pending requests.</div>';
+    else reqEl.innerHTML = incoming.docs.map(d=>{
+      const r={id:d.id,...d.data()};
+      const color=r.fromColor||AVATAR_COLORS[0];
+      return `<div class="friend-card" style="border:1px solid var(--border);border-radius:10px;margin-bottom:8px;padding:12px">
+        ${avatarHtml(r.fromName,color,44)}
+        <div style="flex:1"><div style="font-size:14px;font-weight:600">${esc(r.fromName||'')}</div><div style="font-size:11px;color:var(--text3)">Wants to be friends</div></div>
+        <div style="display:flex;gap:6px">
+          <button onclick="TF.respondFriendReq('${r.id}','${r.fromUid}','${esc(r.fromName||'')}','${color}',true)" class="btn btn-primary btn-sm">✓ Accept</button>
+          <button onclick="TF.respondFriendReq('${r.id}','${r.fromUid}','','',false)" class="btn btn-danger btn-sm">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+    const friends = [
+      ...sent.docs.map(d=>({uid:d.data().toUid,name:d.data().toName||'',color:d.data().toColor||AVATAR_COLORS[0]})),
+      ...accepted1.docs.map(d=>({uid:d.data().fromUid,name:d.data().fromName||'',color:d.data().fromColor||AVATAR_COLORS[0]}))
+    ];
+    const unique = [...new Map(friends.map(f=>[f.uid,f])).values()];
+    if (!unique.length) { friendsEl.innerHTML='<div style="padding:4px 0 20px;font-size:13px;color:var(--text3)">No friends yet. Search above!</div>'; return; }
+    // Refresh names from profiles
+    const enriched = await Promise.all(unique.map(async f=>{
+      try { const s=await db.collection('users').doc(f.uid).get(); if(s.exists)return{...f,name:s.data().name||f.name,color:s.data().avatarColor||f.color}; }catch(e){}
+      return f;
+    }));
+    friendsEl.innerHTML = enriched.map(f=>`
+      <div class="friend-card">
+        ${avatarHtml(f.name,f.color,44)}
+        <div style="flex:1"><div style="font-size:14px;font-weight:600">${esc(f.name)}</div><div style="font-size:11px;color:var(--text3)">TankFolio member</div></div>
+        <button onclick="TF.openDmWith('${f.uid}','${esc(f.name)}','${f.color}')" style="background:rgba(0,212,170,0.1);border:1px solid var(--border2);color:var(--accent);font-size:11px;padding:6px 12px;border-radius:6px;cursor:pointer;font-family:var(--mono)">💬 DM</button>
+      </div>`).join('');
+  } catch(e) { reqEl.innerHTML=`<div style="color:var(--danger);font-size:13px">${e.message}</div>`; }
+}
+
+async function renderConversations() {
+  const el = $('conversations-list');
+  el.innerHTML='<div style="text-align:center;padding:30px"><div class="spinner"></div></div>';
+  try {
+    const snap = await db.collection('conversations').where('members','array-contains',CU.uid).orderBy('lastTs','desc').get();
+    if (snap.empty) { el.innerHTML='<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px">No conversations yet.<br>Go to Friends to start one.</div>'; return; }
+    el.innerHTML = snap.docs.map(d=>{
+      const c={id:d.id,...d.data()};
+      const other = c.members.find(m=>m!==CU.uid);
+      const name  = (c.memberNames||{})[other]||'Unknown';
+      const color = (c.memberColors||{})[other]||AVATAR_COLORS[0];
+      const unread= (c.unread||{})[CU.uid]||0;
+      return `<div class="friend-card" onclick="TF.openDmWith('${other}','${esc(name)}','${color}')">
+        ${avatarHtml(name,color,44)}
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-size:14px;font-weight:${unread?700:500}">${esc(name)}</div>
+            <div style="font-size:10px;color:var(--text3)">${timeAgo(c.lastTs)}</div>
+          </div>
+          <div style="font-size:12px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.lastMsg||'')}</div>
+        </div>
+        ${unread?`<div class="unread-badge">${unread}</div>`:''}
+      </div>`;
+    }).join('');
+  } catch(e) { el.innerHTML=`<div style="padding:16px;color:var(--danger);font-size:13px">${e.message}</div>`; }
+}
+
+async function renderNotifications() {
+  const el = $('notif-list');
+  el.innerHTML='<div style="text-align:center;padding:30px"><div class="spinner"></div></div>';
+  try {
+    const snap = await db.collection('users').doc(CU.uid).collection('notifications').orderBy('createdAt','desc').limit(40).get();
+    if (snap.empty) { el.innerHTML='<div class="empty-state"><div class="icon">🔔</div><div class="title">No notifications</div></div>'; return; }
+    el.innerHTML = snap.docs.map(d=>{
+      const n={id:d.id,...d.data()};
+      const color=n.fromUserColor||AVATAR_COLORS[0];
+      const msg = n.type==='like'?'liked your post':n.type==='comment'?'commented on your post':n.type==='friendRequest'?'sent you a friend request':n.type==='friendAccepted'?'accepted your friend request':n.type==='dm'?'sent you a message':'';
+      return `<div class="notif-item${n.read?'':' unread'}" onclick="TF.tapNotif('${n.id}','${n.type||''}','${n.postId||''}')">
+        ${avatarHtml(n.fromUserName,color,38)}
+        <div style="flex:1;min-width:0">
+          <span style="font-size:13px;font-weight:600">${esc(n.fromUserName||'')}</span>
+          <span style="font-size:13px;color:var(--text2)"> ${msg}</span>
+          ${n.postText?`<div style="font-size:12px;color:var(--text3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">"${esc(n.postText)}"</div>`:''}
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${timeAgo(n.createdAt)}</div>
+        </div>
+        ${!n.read?'<div class="notif-dot"></div>':''}
+      </div>`;
+    }).join('');
+  } catch(e) { el.innerHTML=`<div style="padding:16px;color:var(--danger);font-size:13px">${e.message}</div>`; }
+}
+
+async function renderAdmin() {
+  if (!isAdmin()) { TF.nav('community'); return; }
+  TF.adminTab(currentAdminTab);
+}
+
+async function renderAdminPosts() {
+  const el = $('admin-content');
+  el.innerHTML='<div style="text-align:center;padding:30px"><div class="spinner"></div></div>';
+  try {
+    const snap = await db.collection('posts').orderBy('createdAt','desc').limit(50).get();
+    if (snap.empty) { el.innerHTML='<div style="padding:20px;text-align:center;color:var(--text3)">No posts.</div>'; return; }
+    el.innerHTML = snap.docs.map(d=>{
+      const p={id:d.id,...d.data()};
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
+          <div><div style="font-size:13px;font-weight:600">${esc(p.userName||'')}</div><div style="font-size:11px;color:var(--text3)">${timeAgo(p.createdAt)}</div></div>
+          <div style="display:flex;gap:6px">
+            <button onclick="TF.adminEditPost('${p.id}')" class="btn btn-secondary btn-sm">Edit</button>
+            <button onclick="TF.adminDeletePost('${p.id}')" class="btn btn-danger btn-sm">Delete</button>
+          </div>
+        </div>
+        ${p.text?`<div style="font-size:13px;color:var(--text2)">${esc(p.text.slice(0,100))}${p.text.length>100?'…':''}</div>`:''}
+      </div>`;
+    }).join('');
+  } catch(e) { el.innerHTML=`<div style="padding:20px;color:var(--danger)">${e.message}</div>`; }
+}
+
+async function renderAdminUsers() {
+  const el = $('admin-content');
+  el.innerHTML='<div style="text-align:center;padding:30px"><div class="spinner"></div></div>';
+  try {
+    const snap = await db.collection('users').get();
+    const now = Date.now();
+    el.innerHTML = snap.docs.map(d=>{
+      const u={id:d.id,...d.data()};
+      const isSelf = u.uid===CU.uid;
+      const isAdminUser = ADMIN_EMAILS.includes((u.email||'').toLowerCase());
+      const color = u.avatarColor||AVATAR_COLORS[0];
+      const bannedUntil = u.bannedUntil?.toMillis?.()||0;
+      const banned = bannedUntil>now;
+      return `<div style="background:var(--surface);border:1px solid ${banned?'rgba(255,68,68,0.3)':'var(--border)'};border-radius:12px;padding:14px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          ${avatarHtml(u.name,color,40)}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:600">${esc(u.name||'')}${isAdminUser?'<span class="admin-badge">ADMIN</span>':''}${isSelf?'<span style="font-size:10px;color:var(--text3);margin-left:6px">(you)</span>':''}</div>
+            <div style="font-size:11px;color:var(--text3)">${u.email||''}${banned?` · <span style="color:var(--danger)">Banned until ${new Date(bannedUntil).toLocaleDateString()}</span>`:''}</div>
+          </div>
+        </div>
+        ${isSelf||isAdminUser?'<div style="font-size:11px;color:var(--text3);font-style:italic">Admin accounts cannot be moderated.</div>':`
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <button onclick="TF.adminBanUser('${u.uid}','${esc(u.name||'')}',1)" style="background:rgba(255,170,0,0.12);border:1px solid rgba(255,170,0,0.3);color:var(--warn);font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:var(--mono)">Ban 1d</button>
+          <button onclick="TF.adminBanUser('${u.uid}','${esc(u.name||'')}',7)" style="background:rgba(255,170,0,0.12);border:1px solid rgba(255,170,0,0.3);color:var(--warn);font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:var(--mono)">Ban 7d</button>
+          <button onclick="TF.adminBanUser('${u.uid}','${esc(u.name||'')}',30)" style="background:rgba(255,170,0,0.12);border:1px solid rgba(255,170,0,0.3);color:var(--warn);font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:var(--mono)">Ban 30d</button>
+          <button onclick="TF.adminBanUser('${u.uid}','${esc(u.name||'')}',9999)" style="background:rgba(255,68,68,0.12);border:1px solid rgba(255,68,68,0.3);color:var(--danger);font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:var(--mono)">Perm Ban</button>
+          ${banned?`<button onclick="TF.adminUnban('${u.uid}')" style="background:rgba(0,212,170,0.1);border:1px solid var(--border2);color:var(--accent);font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:var(--mono)">Unban</button>`:''}
+          <button onclick="TF.adminDeleteUser('${u.uid}','${esc(u.name||'')}')" class="btn btn-danger btn-sm">Delete Account</button>
+        </div>`}
+      </div>`;
+    }).join('');
+  } catch(e) { el.innerHTML=`<div style="padding:20px;color:var(--danger)">${e.message}</div>`; }
+}
+
+function buildChart(pts, param) {
+  const W=320,H=140,PL=40,PR=16,PT=16,PB=24;
+  const chartW=W-PL-PR, chartH=H-PT-PB;
+  const vals=pts.map(p=>p.val);
+  const minV=Math.min(...vals), maxV=Math.max(...vals);
+  const range=maxV-minV||1;
+  const xScale=i=>PL+i*(chartW/(pts.length-1));
+  const yScale=v=>PT+chartH-(v-minV)/range*chartH;
+  const pathD='M'+pts.map((p,i)=>`${xScale(i).toFixed(1)},${yScale(p.val).toFixed(1)}`).join('L');
+  const last=pts[pts.length-1];
+  return `<div class="stat-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div class="card-title">${param.label}</div>
+      <div style="font-family:var(--mono);font-size:16px;color:${param.color}">${last.val.toFixed(last.val<10?2:1)}${param.unit}</div>
+    </div>
+    <div style="overflow-x:auto">
+      <svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:${Math.max(W,pts.length*32)}px;display:block">
+        ${param.min!==null?`<rect x="${PL}" y="${yScale(param.max).toFixed(1)}" width="${chartW}" height="${(yScale(param.min)-yScale(param.max)).toFixed(1)}" fill="rgba(0,212,170,0.07)" rx="2"/>`:''}
+        <path d="${pathD}" fill="none" stroke="${param.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        ${pts.map((p,i)=>`<circle cx="${xScale(i).toFixed(1)}" cy="${yScale(p.val).toFixed(1)}" r="3.5" fill="${param.color}" stroke="var(--surface)" stroke-width="1.5"/>`).join('')}
+        ${pts.filter((_,i)=>i%Math.max(1,Math.floor(pts.length/5))===0||i===pts.length-1).map((p,_,arr)=>{
+          const i=pts.indexOf(p);
+          return `<text x="${xScale(i).toFixed(1)}" y="${(PT+chartH+16).toFixed(1)}" text-anchor="middle" font-size="9" fill="rgba(138,180,204,0.6)" font-family="monospace">${p.date.slice(5)}</text>`;
+        }).join('')}
+      </svg>
+    </div>
+  </div>`;
+}
+
+// ── Real-time listeners ───────────────────────────────────────
+function startListeners() {
+  // Notifications badge
+  if (unsubNotifs) unsubNotifs();
+  unsubNotifs = db.collection('users').doc(CU.uid).collection('notifications')
+    .where('read','==',false)
+    .onSnapshot(snap => {
+      const count = snap.size;
+      const badge = $('notif-badge');
+      if (count>0) { badge.textContent=count>99?'99+':count; badge.classList.add('show'); }
+      else badge.classList.remove('show');
+    }, ()=>{});
+  // Conversations badge
+  if (unsubConvs) unsubConvs();
+  unsubConvs = db.collection('conversations').where('members','array-contains',CU.uid)
+    .onSnapshot(snap => {
+      let total=0;
+      snap.docs.forEach(d=>{ total += (d.data().unread||{})[CU.uid]||0; });
+      const badge = $('msg-badge');
+      if (total>0) { badge.textContent=total>99?'99+':total; badge.classList.add('show'); }
+      else badge.classList.remove('show');
+    }, ()=>{});
+  // Reminder notifications
+  setInterval(checkReminders, 30000);
+}
+
+function stopListeners() {
+  if (unsubNotifs) { unsubNotifs(); unsubNotifs=null; }
+  if (unsubConvs)  { unsubConvs();  unsubConvs=null;  }
+  if (unsubDm)     { unsubDm();     unsubDm=null;     }
+}
+
+function checkReminders() {
+  if (!CU||!('Notification'in window)||Notification.permission!=='granted') return;
+  const reminders = loadReminders();
+  const now=new Date();
+  const hhmm=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  const dayName=DAYS[now.getDay()===0?6:now.getDay()-1];
+  tanks.forEach(tank=>{
+    const tr=reminders[tank.id]||{};
+    REMINDER_TYPES.forEach(rt=>{
+      const cfg=tr[rt.key];
+      if (!cfg?.enabled) return;
+      const key=`${tank.id}_${rt.key}_${new Date().toISOString().slice(0,10)}`;
+      if (sessionStorage.getItem('tf_fired_'+key)) return;
+      if (rt.hasTime && cfg.time && cfg.time===hhmm) {
+        sessionStorage.setItem('tf_fired_'+key,'1');
+        new Notification(`TankFolio — ${tank.name}`,{body:rt.label+' reminder',icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🐠</text></svg>'});
+      }
+      if (rt.hasDays && cfg.days?.includes(dayName) && hhmm==='08:00') {
+        sessionStorage.setItem('tf_fired_'+key,'1');
+        new Notification(`TankFolio — ${tank.name}`,{body:rt.label+' reminder',icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🐠</text></svg>'});
+      }
+    });
+  });
+}
+
+// ── Verify polling ────────────────────────────────────────────
+function startVerifyPolling() {
+  stopVerifyPolling();
+  verifyPollTimer = setInterval(async()=>{
+    try {
+      await auth.currentUser?.reload();
+      if (auth.currentUser?.emailVerified) {
+        stopVerifyPolling();
+        location.reload();
+      }
+    } catch(e){}
+  }, 3000);
+}
+
+function stopVerifyPolling() {
+  if (verifyPollTimer) { clearInterval(verifyPollTimer); verifyPollTimer=null; }
+}
+
+function showVerifyScreen(email, verifyErr) {
+  $('login-screen').classList.add('hidden');
+  $('loading-screen').classList.add('hidden');
+  const vs = $('verify-screen');
+  vs.classList.add('show');
+  $('verify-email').textContent = email||'';
+  const st = $('verify-status');
+  if (verifyErr) { st.textContent='⚠️ Could not send email: '+verifyErr.code; st.style.color='var(--warn)'; }
+  else { st.textContent='✅ Check your inbox and spam folder.'; st.style.color='var(--accent)'; }
+  startVerifyPolling();
+}
+
+// ── Pull-to-refresh ───────────────────────────────────────────
+(function initPtr(){
+  const content = $('content');
+  let startY=0, pulling=false, refreshing=false;
+  content.addEventListener('touchstart', e=>{
+    if ($('view-community').classList.contains('active') && content.scrollTop===0) {
+      startY=e.touches[0].clientY; pulling=true;
+    }
+  }, {passive:true});
+  content.addEventListener('touchmove', e=>{
+    if (!pulling||refreshing) return;
+    const dy=e.touches[0].clientY-startY;
+    if (dy<=0){pulling=false;return;}
+    const ptr=$('ptr'); const h=Math.min(dy*0.45,60);
+    ptr.style.maxHeight=h+'px'; ptr.classList.add('pulling');
+    $('ptr-icon').style.transform=`rotate(${Math.min(dy*1.8,360)}deg)`;
+    $('ptr-label').textContent=dy>80?'Release to refresh':'Pull to refresh';
+  },{passive:true});
+  content.addEventListener('touchend', async e=>{
+    if (!pulling||refreshing){pulling=false;return;}
+    const dy=e.changedTouches[0].clientY-startY; pulling=false;
+    const ptr=$('ptr');
+    if (dy>80){
+      refreshing=true; ptr.style.maxHeight='48px';
+      $('ptr-icon').classList.add('ptr-spinning');
+      $('ptr-label').textContent='Refreshing...';
+      await renderCommunity();
+      $('ptr-icon').classList.remove('ptr-spinning');
+    }
+    ptr.style.maxHeight='0'; ptr.classList.remove('pulling'); refreshing=false;
+  },{passive:true});
+})();
+
+// ── Wire up the add-tank button after DOM ready ───────────────
+document.addEventListener('DOMContentLoaded', function() {
+  const btn = document.getElementById('add-tank-btn');
+  if (btn) btn.addEventListener('click', function() { TF.openAddTank(); });
+});
+
+// Make TF available globally
+window.TF = TF;
+window.saveLog = saveLog;
+window.updateParamDot = updateParamDot;
+window.toggleFeedDay = toggleFeedDay;
+window.toggleDay = toggleDay;
+window.toggleReminder = toggleReminder;
+window.setReminderTime = setReminderTime;
+window.toggleReminderDay = toggleReminderDay;
+
+</script>
+</body>
+</html>
