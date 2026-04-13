@@ -1446,23 +1446,35 @@ const TF = {
     if (!text || !dmConvId || !dmUserId) return;
     $('dm-input').value=''; $('dm-input').style.height='40px';
     try {
-      const myName    = UP?.name||CU.displayName||'Someone';
-      const myColor   = UP?.avatarColor||AVATAR_COLORS[0];
+      const myName     = UP?.name||CU.displayName||'Someone';
+      const myColor    = UP?.avatarColor||AVATAR_COLORS[0];
       const theirName  = window._dmUserName  || $('dm-name').textContent || 'User';
       const theirColor = window._dmUserColor || AVATAR_COLORS[0];
-      const convRef = db.collection('conversations').doc(dmConvId);
+      const convRef    = db.collection('conversations').doc(dmConvId);
 
-      // Always set the conversation doc first (set with merge is safe for both new and existing)
-      await convRef.set({
-        members: [CU.uid, dmUserId],
-        memberNames:  { [CU.uid]: myName,  [dmUserId]: theirName },
-        memberColors: { [CU.uid]: myColor, [dmUserId]: theirColor },
-        lastMsg: text,
-        lastTs:  FS.FieldValue.serverTimestamp(),
-        unread:  { [CU.uid]: 0, [dmUserId]: FS.FieldValue.increment(1) }
-      }, { merge: true });
+      // Check if conversation already exists
+      const convSnap = await convRef.get();
 
-      // Then add the message
+      if (!convSnap.exists) {
+        // First message — create the conversation doc cleanly (no increment on new doc)
+        await convRef.set({
+          members:      [CU.uid, dmUserId],
+          memberNames:  { [CU.uid]: myName,  [dmUserId]: theirName },
+          memberColors: { [CU.uid]: myColor, [dmUserId]: theirColor },
+          lastMsg:  text,
+          lastTs:   FS.FieldValue.serverTimestamp(),
+          unread:   { [CU.uid]: 0, [dmUserId]: 1 }
+        });
+      } else {
+        // Existing conversation — update with increment
+        await convRef.update({
+          lastMsg: text,
+          lastTs:  FS.FieldValue.serverTimestamp(),
+          [`unread.${dmUserId}`]: FS.FieldValue.increment(1)
+        });
+      }
+
+      // Add the message
       await convRef.collection('messages').add({
         senderUid: CU.uid, senderName: myName,
         text, ts: FS.FieldValue.serverTimestamp()
@@ -1476,7 +1488,7 @@ const TF = {
 
     } catch(e) {
       console.error('sendDm error:', e.code, e.message);
-      toast('Failed to send: ' + (e.code==='permission-denied' ? 'Permission denied — check Firestore rules.' : e.message));
+      toast('Failed: ' + (e.code==='permission-denied' ? 'Check Firestore rules are published.' : e.message));
       $('dm-input').value = text;
     }
   },
